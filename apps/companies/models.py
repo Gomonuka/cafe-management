@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 
 
 class Company(models.Model):
@@ -27,6 +28,25 @@ class Company(models.Model):
     def address(self):
         """Adrese kā viens atribūts"""
         return f"{self.address_line1}, {self.city}, {self.country}"
+    
+    @property
+    def is_open_now(self) -> bool:
+        """
+        Atgriež True, ja uzņēmums šobrīd ir atvērts
+        (pēc uzņēmuma darba laika).
+        """
+        # Берём локальное время (учитывая TIME_ZONE в settings.py)
+        now = timezone.localtime()
+        weekday = now.weekday()  # 0 = Pirmdiena ... 6 = Svētdiena
+        weekday_db = weekday + 1 
+
+        wh = self.working_hours.filter(weekday=weekday_db).first()
+        if not wh or wh.is_closed:
+            return False
+
+        current_time = now.time()
+
+        return wh.opens_at <= current_time <= wh.closes_at
 
     def __str__(self):
         return self.name

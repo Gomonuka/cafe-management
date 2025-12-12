@@ -27,9 +27,13 @@ class CompanySerializer(serializers.ModelSerializer):
             "phone",
             "email",
             "is_active",
+            "is_open_now",
             "working_hours",       # read-only
             "working_hours_data",  # write-only
         ]
+
+    def get_is_open_now(self, obj):
+        return obj.is_open_now
 
     def create(self, validated_data):
         working_hours_data = validated_data.pop("working_hours_data", [])

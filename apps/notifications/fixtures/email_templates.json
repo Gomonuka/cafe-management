@@ -1,0 +1,46 @@
+[
+  {
+    "model": "notifications.emailtemplate",
+    "pk": 1,
+    "fields": {
+      "code": "password_reset_request",
+      "subject": "Password reset for {username}",
+      "body": "Hello {username}, we received a request to reset your password. Use this link to proceed: {reset_link}",
+      "is_active": true,
+      "created_by": null
+    }
+  },
+  {
+    "model": "notifications.emailtemplate",
+    "pk": 2,
+    "fields": {
+      "code": "password_reset_success",
+      "subject": "Your password was reset",
+      "body": "Hello {username}, your password has been changed successfully. If this was not you, please contact support immediately.",
+      "is_active": true,
+      "created_by": null
+    }
+  },
+  {
+    "model": "notifications.emailtemplate",
+    "pk": 3,
+    "fields": {
+      "code": "order_new_for_company",
+      "subject": "New order {order_number} received",
+      "body": "A new order {order_number} was placed for {company}.",
+      "is_active": true,
+      "created_by": null
+    }
+  },
+  {
+    "model": "notifications.emailtemplate",
+    "pk": 4,
+    "fields": {
+      "code": "order_status_changed",
+      "subject": "Order {order_number} status updated",
+      "body": "Order {order_number} at {company} changed status from {previous_status} to {new_status}.",
+      "is_active": true,
+      "created_by": null
+    }
+  }
+]

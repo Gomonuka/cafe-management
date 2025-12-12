@@ -1,6 +1,8 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
+from .permissions import user_has_role
+
 User = get_user_model()
 
 
@@ -36,6 +38,17 @@ class UserSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         password = validated_data.pop("password", None)
+
+        request = self.context.get("request")
+        request_user = getattr(request, "user", None)
+
+        # Tikai sist�"mas admin var main�?t lomu, citi nevar pievienot/labot �?etrisku info
+        if not user_has_role(request_user, ["system_admin"]):
+            validated_data.pop("role", None)
+
+        if not user_has_role(request_user, ["system_admin", "company_admin"]):
+            validated_data.pop("company", None)
+
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         if password:
