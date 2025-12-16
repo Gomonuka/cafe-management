@@ -1,53 +1,89 @@
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { confirmPasswordReset } from "../auth/auth.api";
-import "../styles/auth.css";
+import { FiLock, FiEye, FiEyeOff } from "react-icons/fi";
 
-const ResetPassword = () => {
+import AuthCard from "../components/auth/AuthCard";
+import AuthField from "../components/auth/AuthField";
+import { ErrorBox, OkBox } from "../components/auth/AuthMessage";
+import { confirmPasswordReset } from "../auth/auth.api";
+
+export default function ResetPassword() {
   const query = useMemo(() => new URLSearchParams(window.location.search), []);
   const uid = query.get("uid") ?? "";
   const token = query.get("token") ?? "";
 
-  const [password, setPassword] = useState("");
-  const [success, setSuccess] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [p1, setP1] = useState("");
+  const [p2, setP2] = useState("");
+  const [show1, setShow1] = useState(false);
+  const [show2, setShow2] = useState(false);
 
-  const handleSubmit = async (e: FormEvent) => {
+  const [error, setError] = useState<string | null>(null);
+  const [ok, setOk] = useState<string | null>(null);
+
+  const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
-    setSuccess(false);
+    setOk(null);
 
-    const res = await confirmPasswordReset({
-      uid,
-      token,
-      new_password: password,
-    });
+    if (!uid || !token) {
+      setError("Invalid reset link.");
+      return;
+    }
+    if (p1.length < 6) {
+      setError("Parolei jābūt vismaz 6 simboli.");
+      return;
+    }
+    if (p1 !== p2) {
+      setError("Paroles nesakrīt.");
+      return;
+    }
 
+    const res = await confirmPasswordReset({ uid, token, new_password: p1 });
     if (!res.ok) {
       setError(res.data?.detail || JSON.stringify(res.data));
       return;
     }
 
-    setSuccess(true);
+    setOk("Parole nomainīta. Vari ieiet sistēmā.");
   };
 
   return (
-    <div className="auth-page">
-      <div className="card">
-        <div className="brand">CRMS</div>
+    <AuthCard
+      subtitle={
+        <>
+          Lūdzu, ievadiet jauno paroli savam<br />
+          kontam.
+        </>
+      }
+    >
+      <form className="form" onSubmit={onSubmit}>
+        <AuthField
+          leftIcon={<FiLock />}
+          placeholder="Jaunā parole"
+          inputType={show1 ? "text" : "password"}
+          value={p1}
+          onChange={setP1}
+          rightIcon={show1 ? <FiEyeOff /> : <FiEye />}
+          onRightIconClick={() => setShow1((s) => !s)}
+        />
 
-        <form className="form" onSubmit={handleSubmit}>
-          <input className="input" type="password" placeholder="New password" value={password} onChange={(e) => setPassword(e.target.value)} />
-          <button className="btn" type="submit">Set new password</button>
-        </form>
+        <AuthField
+          leftIcon={<FiLock />}
+          placeholder="Apstiprināt paroli"
+          inputType={show2 ? "text" : "password"}
+          value={p2}
+          onChange={setP2}
+          rightIcon={show2 ? <FiEyeOff /> : <FiEye />}
+          onRightIconClick={() => setShow2((s) => !s)}
+        />
 
-        {success && <div className="ok">Password changed. You can login now.</div>}
-        {error && <div className="err">{error}</div>}
+        <button className="btn" type="submit">Atiestatīt paroli</button>
+      </form>
 
-        <a className="link" href="/">Back to login</a>
-      </div>
-    </div>
+      <OkBox text={ok} />
+      <ErrorBox text={error} />
+
+      <a className="link" href="/">Atpakaļ uz login</a>
+    </AuthCard>
   );
-};
-
-export default ResetPassword;
+}

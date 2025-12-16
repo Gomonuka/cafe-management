@@ -1,88 +1,283 @@
+:root{
+  --c1:#0C4688;
+  --c2:#1D82F0;
+  --c3:#82C3FF; 
+  --blue:#1D82F0;
+  --bg-input:#F5F3F3;
+  --gray:#797979;
+  --white:#FFFFFF;
+
+  --shadow: 0 18px 45px rgba(15, 104, 206, 0.22);
+  --shadow-soft: 0 12px 28px rgba(2, 32, 88, 0.14);
+}
+
+*{ box-sizing:border-box; }
+html, body{ height:100%; }
+body{
+  margin:0;
+  font-family: "Roboto", system-ui, -apple-system, Segoe UI, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 .auth-page{
   min-height: 100svh;
   display:flex;
   align-items:center;
   justify-content:center;
-  padding: 24px;
-  background: linear-gradient(180deg, #0b4ea2 0%, #1e73d8 45%, #79c6ff 100%);
+  padding: 28px 14px;
+  background: linear-gradient(180deg, var(--c1) 0%, var(--c2) 45%, var(--c3) 100%);
 }
 
-.card{
-  width: min(380px, 92vw);
-  background: #fff;
-  border: 1px solid rgba(12, 64, 140, .12);
+.auth-shell{
+  width: min(420px, 94vw);
+  display:flex;
+  flex-direction:column;
+  gap: 16px;
+}
+
+.auth-card{
+  background: var(--white);
   border-radius: 18px;
-  box-shadow: 0 18px 40px rgba(2, 32, 88, .18);
-  padding: 22px;
+  padding: 22px 22px 18px;
+  box-shadow: var(--shadow);
   text-align:center;
 }
 
-.brand{
-  font-size: 44px;
-  font-weight: 900;
-  letter-spacing: .5px;
-  margin: 4px 0 12px;
-  color: transparent;
-  -webkit-text-stroke: 2px #1e73d8;
-  text-shadow: 0 3px 0 rgba(30,115,216,.12);
+.auth-bottom{
+  background: var(--white);
+  border-radius: 14px;
+  padding: 14px 16px;
+  box-shadow: var(--shadow-soft);
+  text-align:center;
+}
+
+.logo{
+  width: 150px;
+  height: auto;
+  display:block;
+  margin: 2px auto 6px;
+}
+
+.title{
+  margin: 4px 0 14px;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--blue);
+}
+
+.subtitle{
+  margin: 0 10px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--blue);
+  line-height: 1.45;
 }
 
 .form{
   display:flex;
   flex-direction:column;
-  gap: 12px;
-  margin-top: 10px;
+  gap: 14px;
+  margin-top: 6px;
+}
+
+.field{
+  position: relative;
 }
 
 .input{
   width: 100%;
-  border: 2px solid #2a7be6;
-  border-radius: 14px;
-  padding: 12px 14px;
+  position: relative;
+  z-index: 1;
+  border-left: 3px solid var(--blue);
+  border-right: 3px solid var(--blue);
+  border-top: none;
+  border-bottom: none;
+  background: var(--bg-input);
+  border-radius: 10px;
   outline: none;
-  background: #f3f4f6;
-  font-size: 16px;
+  height: 46px;
+  padding: 0 46px;
+  font-size: 15px;
+  color: var(--blue);
+  transition: transform .14s ease, box-shadow .14s ease, border-color .14s ease;
+}
+
+.input::placeholder{
+  color: var(--gray);
+  font-weight: 500;
+}
+
+.icon-left,
+.icon-right{
+  position:absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display:flex;
+  z-index:2;
+  align-items:center;
+  justify-content:center;
+  width: 46px;
+  height: 46px;
+  color: var(--blue);
+}
+
+.icon-left { 
+    left: 0;
+    pointer-events: none;
+}
+.icon-right { 
+    right: 0;
+    cursor:pointer;
+    pointer-events: auto;
+}
+
+.icon-left svg,
+.icon-right svg{
+  width: 18px;
+  height: 18px;
+}
+
+.select{
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--blue);
+}
+
+.select option{
+  font-weight: 600;
+}
+
+.field:hover .select{
+  transform: translateY(-1px);
+}
+
+.select:focus{
+  box-shadow: 0 0 0 4px rgba(29,130,240,.18);
+}
+
+.field:hover .input{
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(29, 130, 240, 0.18);
+}
+
+.input:focus{
+  box-shadow: 0 0 0 4px rgba(29, 130, 240, 0.18);
+  transform: translateY(-1px);
 }
 
 .btn{
+  margin-top: 4px;
   border: 0;
   cursor: pointer;
   border-radius: 12px;
-  padding: 12px 16px;
-  background: #1e73d8;
+  height: 48px;
+  background: var(--blue);
   color: #fff;
+  font-size: 16px;
   font-weight: 700;
-  box-shadow: 0 10px 22px rgba(2, 32, 88, .18);
+  letter-spacing: .4px;
+  transition: transform .15s ease, box-shadow .15s ease, filter .15s ease;
 }
 
-.btn:hover{ background:#175fb4; }
+.btn:hover{
+  transform: translateY(-2px);
+  box-shadow: 0 10px 10px rgba(29, 130, 240, 0.32);
+  filter: brightness(1.02);
+}
+
+.btn:active{
+  transform: translateY(0px);
+  box-shadow: 0 12px 22px rgba(29, 130, 240, 0.24);
+}
 
 .link{
   display:inline-block;
-  margin-top: 10px;
-  color: #1e73d8;
-  font-weight: 700;
+  margin-top: 12px;
+  color: var(--blue);
+  font-weight: 900;
   text-decoration: none;
+  font-size: 14px;
+  transition: transform .12s ease, opacity .12s ease;
 }
-.link:hover{ text-decoration: underline; }
+.link:hover{
+  text-decoration: underline;
+  transform: translateY(-1px);
+}
+
+.row{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap: 10px;
+  margin-top: 10px;
+  color: var(--blue);
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.check{
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--blue);
+}
+
+.check input{
+  display: none;
+}
+
+.check .box{
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 2px solid var(--blue);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all .15s ease;
+  background: #fff;
+}
+
+.check input:checked + .box{
+  background: var(--blue);
+}
+
+.check input:checked + .box::after{
+  content: "x";
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+}
 
 .err{
-  margin-top: 10px;
+  margin-top: 12px;
   padding: 10px 12px;
   border-radius: 12px;
-  background: rgba(239,68,68,.12);
+  background: rgba(239,68,68,.10);
   color: #b91c1c;
-  font-weight: 600;
+  font-weight: 700;
   text-align:left;
+  font-size: 13px;
   white-space: pre-wrap;
 }
 
 .ok{
-  margin-top: 10px;
+  margin-top: 12px;
   padding: 10px 12px;
   border-radius: 12px;
-  background: rgba(34,197,94,.12);
+  background: rgba(34,197,94,.10);
   color: #166534;
-  font-weight: 700;
+  font-weight: 800;
   text-align:left;
+  font-size: 13px;
 }

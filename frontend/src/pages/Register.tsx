@@ -1,22 +1,32 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { register } from "../auth/auth.api";
-import "../styles/auth.css";
+import { useNavigate } from "react-router-dom";
+import { FiUser, FiMail, FiLock, FiEye, FiEyeOff, FiChevronDown } from "react-icons/fi";
+
+import AuthCard from "../components/auth/AuthCard";
+import AuthField from "../components/auth/AuthField";
+import { ErrorBox, OkBox } from "../components/auth/AuthMessage";
+import { register, login } from "../auth/auth.api";
 
 type Role = "client" | "company_admin";
 
-const Register = () => {
+export default function Register() {
+  const nav = useNavigate();
+
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<Role>("client");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [show, setShow] = useState(false);
+  const [autoLogin, setAutoLogin] = useState(true);
 
-  const handleSubmit = async (e: FormEvent) => {
+  const [error, setError] = useState<string | null>(null);
+  const [ok, setOk] = useState<string | null>(null);
+
+  const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
-    setSuccess(false);
+    setOk(null);
 
     const res = await register({ username, email, password, role });
     if (!res.ok) {
@@ -24,35 +34,64 @@ const Register = () => {
       return;
     }
 
-    setSuccess(true);
+    if (autoLogin) {
+      const res2 = await login({ username, password });
+      if (res2.ok) {
+        nav("/app");
+        return;
+      }
+    }
+
+    setOk("Konts izveidots. Tagad vari ieiet.");
   };
 
   return (
-    <div className="auth-page">
-      <div className="card">
-        <div className="brand">CRMS</div>
+    <AuthCard title="Reģistrēties">
+      <form className="form" onSubmit={onSubmit}>
+        <AuthField leftIcon={<FiUser />} placeholder="Lietotājvārds" value={username} onChange={setUsername} />
+        <AuthField leftIcon={<FiMail />} placeholder="E-pasts" value={email} onChange={setEmail} />
 
-        <form className="form" onSubmit={handleSubmit}>
-          <input className="input" placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value)} />
-          <input className="input" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <AuthField
+          kind="select"
+          leftIcon={<FiUser />}
+          value={role}
+          onChange={(v) => setRole(v as Role)}
+          options={[
+            { value: "client", label: "Klients" },
+            { value: "company_admin", label: "Uzņēmuma administrators" },
+          ]}
+          rightIcon={<FiChevronDown />}
+        />
 
-          <select className="input" value={role} onChange={(e) => setRole(e.target.value as Role)}>
-            <option value="client">Client</option>
-            <option value="company_admin">Company admin</option>
-          </select>
+        <AuthField
+          leftIcon={<FiLock />}
+          placeholder="Parole"
+          inputType={show ? "text" : "password"}
+          value={password}
+          onChange={setPassword}
+          rightIcon={show ? <FiEyeOff /> : <FiEye />}
+          onRightIconClick={() => setShow((s) => !s)}
+        />
 
-          <input className="input" type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
+        <button className="btn" type="submit">Pierakstīties</button>
+      </form>
 
-          <button className="btn" type="submit">Create account</button>
-        </form>
-
-        {success && <div className="ok">Account created. You can login now.</div>}
-        {error && <div className="err">{error}</div>}
-
-        <a className="link" href="/">Back to login</a>
+      <div className="row">
+        <label className="check">
+            <input
+                type="checkbox"
+                checked={autoLogin}
+                onChange={(e) => setAutoLogin(e.target.checked)}
+            />
+            <span className="box" />
+            Ienākt uzreiz?
+        </label>
       </div>
-    </div>
-  );
-};
 
-export default Register;
+      <OkBox text={ok} />
+      <ErrorBox text={error} />
+
+      <a className="link" href="/">Atgriezties pie pierakstīšanās</a>
+    </AuthCard>
+  );
+}

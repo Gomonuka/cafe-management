@@ -1,44 +1,49 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
+import { FiMail } from "react-icons/fi";
+
+import AuthCard from "../components/auth/AuthCard";
+import AuthField from "../components/auth/AuthField";
+import { ErrorBox, OkBox } from "../components/auth/AuthMessage";
 import { requestPasswordReset } from "../auth/auth.api";
-import "../styles/auth.css";
 
-const ForgotPassword = () => {
+export default function ForgotPassword() {
   const [email, setEmail] = useState("");
-  const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [ok, setOk] = useState<string | null>(null);
 
-  const handleSubmit = async (e: FormEvent) => {
+  const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
-    setSuccess(false);
+    setOk(null);
 
     const res = await requestPasswordReset(email);
     if (!res.ok) {
       setError(JSON.stringify(res.data));
       return;
     }
-
-    setSuccess(true);
+    setOk("Ja e-pasts eksistē, saite ir nosūtīta.");
   };
 
   return (
-    <div className="auth-page">
-      <div className="card">
-        <div className="brand">CRMS</div>
+    <AuthCard
+      subtitle={
+        <>
+          Ievadiet savu e-pasta adresi, un<br />
+          mēs nosūtīsim paroles<br />
+          atiestatīšanas saiti.
+        </>
+      }
+    >
+      <form className="form" onSubmit={onSubmit}>
+        <AuthField leftIcon={<FiMail />} placeholder="E-pasts" value={email} onChange={setEmail} />
+        <button className="btn" type="submit">Nosūtīt saiti</button>
+      </form>
 
-        <form className="form" onSubmit={handleSubmit}>
-          <input className="input" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          <button className="btn" type="submit">Send reset link</button>
-        </form>
+      <OkBox text={ok} />
+      <ErrorBox text={error} />
 
-        {success && <div className="ok">If this email exists, reset link was sent.</div>}
-        {error && <div className="err">{error}</div>}
-
-        <a className="link" href="/">Back to login</a>
-      </div>
-    </div>
+      <a className="link" href="/">Atpakaļ uz login</a>
+    </AuthCard>
   );
-};
-
-export default ForgotPassword;
+}
