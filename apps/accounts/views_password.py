@@ -1,98 +1,77 @@
+from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.contrib.auth.tokens import PasswordResetTokenGenerator
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
-from django.utils.encoding import force_bytes
+
 from rest_framework import status
+from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.exceptions import ValidationError, PermissionDenied
 
-from apps.notifications.services import send_templated_email
-from .permissions import IsAuthenticatedAndNotBlocked
+from .serializers_password import PasswordResetRequestSerializer, PasswordResetConfirmSerializer
+from .email_service import send_password_reset_email
 
 User = get_user_model()
-token_generator = PasswordResetTokenGenerator()
 
 
 class PasswordResetRequestView(APIView):
+    """
+    POST /api/auth/password-reset/
+    Body: { "email": "user@example.com" }
+    """
+    permission_classes = [AllowAny]
     authentication_classes = []
-    permission_classes = []
 
     def post(self, request):
-        email = request.data.get("email")
-        reset_base = request.data.get(
-            "reset_base_url",
-            getattr(request, "reset_base_url", None)
-            or getattr(request, "META", {}).get("HTTP_ORIGIN")
-            or getattr(request._request, "build_absolute_uri", lambda: None)(),
-        )
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-        if not email:
-            raise ValidationError("Email is required.")
+        email = serializer.validated_data["email"].strip().lower()
 
-        user = User.objects.filter(email=email).first()
-        if not user:
-            return Response(status=status.HTTP_204_NO_CONTENT)
+        user = User.objects.filter(email__iexact=email).first()
 
-        if getattr(user, "is_blocked", False):
-            raise PermissionDenied("User is blocked.")
+        if user and user.is_active and not getattr(user, "is_blocked", False):
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            token = default_token_generator.make_token(user)
 
-        uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
-        token = token_generator.make_token(user)
+            frontend_url = getattr(
+                settings,
+                "FRONTEND_RESET_PASSWORD_URL",
+                "http://localhost:5173/reset-password",
+            )
 
-        if not reset_base:
-            reset_base = getattr(
-                request, "scheme", "http"
-            ) + "://" + request.get_host() + "/reset-password"
+            reset_link = f"{frontend_url}?uid={uid}&token={token}"
+            send_password_reset_email(to_email=user.email, reset_link=reset_link)
 
-        if reset_base.endswith("/"):
-            reset_link = f"{reset_base}{uidb64}/{token}/"
-        else:
-            reset_link = f"{reset_base}/{uidb64}/{token}/"
-
-        send_templated_email(
-            code="password_reset_request",
-            to_email=user.email,
-            context={
-                "username": user.username,
-                "reset_link": reset_link,
-            },
-            receiver_user=user,
-        )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class PasswordResetConfirmView(APIView):
+    permission_classes = [AllowAny]
     authentication_classes = []
-    permission_classes = []
 
     def post(self, request):
-        uidb64 = request.data.get("uid")
-        token = request.data.get("token")
-        new_password = request.data.get("new_password")
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-        if not uidb64 or not token or not new_password:
-            raise ValidationError("uid, token and new_password are required.")
+        uid = serializer.validated_data["uid"]
+        token = serializer.validated_data["token"]
+        new_password = serializer.validated_data["new_password"]
 
         try:
-            uid = urlsafe_base64_decode(uidb64).decode()
-            user = User.objects.get(pk=uid)
+            user_id = force_str(urlsafe_base64_decode(uid))
+            user = User.objects.get(pk=user_id)
         except Exception:
-            raise ValidationError("Invalid reset link.")
+            return Response({"detail": "Invalid reset link."}, status=status.HTTP_400_BAD_REQUEST)
 
-        if getattr(user, "is_blocked", False):
-            raise PermissionDenied("User is blocked.")
+        if not user.is_active or getattr(user, "is_blocked", False):
+            return Response({"detail": "Invalid reset link."}, status=status.HTTP_400_BAD_REQUEST)
 
-        if not token_generator.check_token(user, token):
-            raise ValidationError("Invalid or expired token.")
+        if not default_token_generator.check_token(user, token):
+            return Response({"detail": "Invalid reset link."}, status=status.HTTP_400_BAD_REQUEST)
 
         user.set_password(new_password)
         user.save(update_fields=["password"])
 
-        send_templated_email(
-            code="password_reset_success",
-            to_email=user.email,
-            context={"username": user.username},
-            receiver_user=user,
-        )
-        return Response(status=status.HTTP_200_OK)
+        return Response(status=status.HTTP_204_NO_CONTENT)

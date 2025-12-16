@@ -42,7 +42,6 @@ class UserSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         request_user = getattr(request, "user", None)
 
-        # Tikai sist�"mas admin var main�?t lomu, citi nevar pievienot/labot �?etrisku info
         if not user_has_role(request_user, ["system_admin"]):
             validated_data.pop("role", None)
 
