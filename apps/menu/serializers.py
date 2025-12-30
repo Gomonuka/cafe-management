@@ -1,63 +1,139 @@
 from rest_framework import serializers
-from .models import MenuCategory, Product
+from apps.accounts.models import User
+from apps.inventory.models import InventoryItem  # jāeksistē inventory app/modelim
+
+from .models import MenuCategory, Product, RecipeItem
 
 
-class MenuCategorySerializer(serializers.ModelSerializer):
+class RecipeItemInputSerializer(serializers.Serializer):
+    # Ievadei: sastāvdaļa + daudzums
+    inventory_item_id = serializers.IntegerField()
+    amount = serializers.DecimalField(max_digits=12, decimal_places=3)
+
+    def validate_amount(self, value):
+        # Daudzumam jābūt pozitīvam
+        if value <= 0:
+            raise serializers.ValidationError("Daudzumam jābūt pozitīvam.")
+        return value
+
+
+class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = MenuCategory
-        fields = "__all__"
+        fields = ["id", "name", "description", "is_active"]
 
 
-class ProductSerializer(serializers.ModelSerializer):
-    category = MenuCategorySerializer(read_only=True)
-    category_id = serializers.PrimaryKeyRelatedField(
-        source="category",
-        queryset=MenuCategory.objects.all(),
-        write_only=True,
-    )
+class ProductPublicSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Product
+        fields = ["id", "name", "price", "is_available"]
+
+
+class ProductAdminSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Product
+        fields = ["id", "name", "price", "is_available", "category_id", "photo"]
+
+
+class MenuPublicSerializer(serializers.Serializer):
+    # Klientam: kategorijas ar produktiem (tikai aktīvas kategorijas un pieejamie produkti)
+    categories = serializers.ListField()
+
+
+class MenuAdminSerializer(serializers.Serializer):
+    # UA: kategoriju saraksts + produktu saraksts ar ID un nosaukumiem
+    categories = serializers.ListField()
+    products = serializers.ListField()
+
+
+class CategoryCreateUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MenuCategory
+        fields = ["name", "description", "is_active"]
+
+    def validate_name(self, value):
+        if not value or len(value) > 255:
+            raise serializers.ValidationError("Nosaukums ir obligāts un līdz 255 simboliem.")
+        return value
+
+    def validate_description(self, value):
+        if value and len(value) > 1000:
+            raise serializers.ValidationError("Apraksts nedrīkst pārsniegt 1000 simbolus.")
+        return value
+
+
+class ProductCreateUpdateSerializer(serializers.ModelSerializer):
+    # Produkta izveide/rediģēšana ar recepti
+    recipe = RecipeItemInputSerializer(many=True, write_only=True)
 
     class Meta:
         model = Product
-        fields = [
-            "id",
-            "name",
-            "description",
-            "image",
-            "price",
-            "is_available",
-            "company",
-            "category",
-            "category_id",
-            "available_quantity",
-        ]
-        read_only_fields = ["available_quantity"]
+        fields = ["name", "photo", "category", "is_available", "price", "recipe"]
+
+    def validate_name(self, value):
+        if not value or len(value) > 255:
+            raise serializers.ValidationError("Produkta nosaukums ir obligāts un līdz 255 simboliem.")
+        return value
 
     def validate_price(self, value):
-        if value is None or value <= 0:
-            raise serializers.ValidationError("Price must be greater than zero.")
+        if value <= 0:
+            raise serializers.ValidationError("Cena par vienību ir jābūt pozitīvai.")
+        return value
+
+    def validate_recipe(self, value):
+        # Recepte ir obligāta un vismaz ar 1 sastāvdaļu
+        if not value or len(value) < 1:
+            raise serializers.ValidationError("Recepte ir obligāta un jānorāda vismaz 1 sastāvdaļa.")
         return value
 
     def validate(self, attrs):
-        # Ensure category/company alignment
-        company = attrs.get("company") or getattr(self.instance, "company", None)
-        category = attrs.get("category") or getattr(self.instance, "category", None)
-        if company and category and category.company_id != company.id:
-            raise serializers.ValidationError("Category must belong to the same company.")
-        return super().validate(attrs)
+        # Pārbauda, ka sastāvdaļas pieder uzņēmuma noliktavai
+        company = self.context["company"]
+        recipe = attrs.get("recipe", [])
+        ids = [x["inventory_item_id"] for x in recipe]
 
-    def get_available_quantity(self, obj):
-        # If no recipe components, treat as not available via stock (0)
-        recipe_components = list(obj.recipe_components.select_related("inventory_item"))
-        if not recipe_components:
-            return 0
+        inv_qs = InventoryItem.objects.filter(company=company, id__in=ids)
+        if inv_qs.count() != len(set(ids)):
+            raise serializers.ValidationError("Recepte satur noliktavas sastāvdaļu, kas nepieder uzņēmumam.")
+        return attrs
 
-        max_units = None
-        for rc in recipe_components:
-            inv = rc.inventory_item
-            if rc.quantity <= 0:
-                return 0
-            possible = int(inv.quantity // rc.quantity)
-            max_units = possible if max_units is None else min(max_units, possible)
-        return max_units or 0
+    def create(self, validated_data):
+        recipe_data = validated_data.pop("recipe")
+        company = self.context["company"]
 
-    available_quantity = serializers.SerializerMethodField()
+        product = Product.objects.create(company=company, **validated_data)
+
+        items = []
+        for row in recipe_data:
+            items.append(
+                RecipeItem(
+                    product=product,
+                    inventory_item_id=row["inventory_item_id"],
+                    amount=row["amount"],
+                )
+            )
+        RecipeItem.objects.bulk_create(items)
+        return product
+
+    def update(self, instance, validated_data):
+        recipe_data = validated_data.pop("recipe", None)
+
+        for k, v in validated_data.items():
+            setattr(instance, k, v)
+        instance.save()
+
+        if recipe_data is not None:
+            # Atjaunina recepti (pārraksta)
+            RecipeItem.objects.filter(product=instance).delete()
+            items = []
+            for row in recipe_data:
+                items.append(
+                    RecipeItem(
+                        product=instance,
+                        inventory_item_id=row["inventory_item_id"],
+                        amount=row["amount"],
+                    )
+                )
+            RecipeItem.objects.bulk_create(items)
+
+        return instance

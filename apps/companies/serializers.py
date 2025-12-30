@@ -1,59 +1,163 @@
+import re
 from rest_framework import serializers
-from .models import Company, CompanyWorkingHours
+from .models import Company, CompanyWorkingHour
 
 
-class CompanyWorkingHoursSerializer(serializers.ModelSerializer):
+PHONE_RE = re.compile(r"^\+\d[\d\s\-]{6,20}$")  # vienkārša validācija ar valsts kodu
+
+
+class WorkingHourInputSerializer(serializers.Serializer):
+    # Ievadei: viena diena ar "No" un "Līdz"
+    weekday = serializers.IntegerField(min_value=0, max_value=6)
+    from_time = serializers.TimeField()
+    to_time = serializers.TimeField()
+
+    def validate(self, attrs):
+        # Validācija: No < Līdz (COMP_004) vai No <= Līdz (COMP_005),
+        # un slēgta diena = 00:00-00:00
+        ft = attrs["from_time"]
+        tt = attrs["to_time"]
+
+        is_closed = (ft.strftime("%H:%M") == "00:00" and tt.strftime("%H:%M") == "00:00")
+        if is_closed:
+            return attrs
+
+        # Šeit pielietojam stingrāko: No < Līdz
+        # (COMP_005 pieļauj No <= Līdz, bet praktiski No=Līdz nav jēgas, izņemot slēgts)
+        if ft >= tt:
+            raise serializers.ValidationError("Darba laikam jābūt korektam: 'No' jābūt mazākam par 'Līdz'.")
+        return attrs
+
+
+class WorkingHourPublicSerializer(serializers.ModelSerializer):
     class Meta:
-        model = CompanyWorkingHours
-        fields = ["id", "weekday", "opens_at", "closes_at", "is_closed"]
+        model = CompanyWorkingHour
+        fields = ["weekday", "from_time", "to_time"]
 
 
-class CompanySerializer(serializers.ModelSerializer):
-    working_hours = CompanyWorkingHoursSerializer(many=True, read_only=True)
-    working_hours_data = CompanyWorkingHoursSerializer(
-        many=True, write_only=True, required=False
-    )
+class CompanyPublicSerializer(serializers.ModelSerializer):
+    # Klientam: logotips, nosaukums, adrese, darba laiks + “open_now”
+    working_hours = WorkingHourPublicSerializer(many=True, read_only=True)
+    open_now = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Company
+        fields = ["id", "logo", "name", "address_line", "city", "country", "working_hours", "open_now"]
+
+    def get_open_now(self, obj: Company) -> bool:
+        return obj.is_open_now()
+
+
+class CompanyAdminListSerializer(serializers.ModelSerializer):
+    # SA sarakstam: ID, nosaukums, statuss
+    status = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Company
+        fields = ["id", "name", "status"]
+
+    def get_status(self, obj: Company) -> str:
+        if obj.deleted_at is not None:
+            return "deleted"
+        if obj.is_blocked:
+            return "blocked"
+        if not obj.is_active:
+            return "inactive"
+        return "active"
+
+
+class CompanyDetailSerializer(serializers.ModelSerializer):
+    # Detalizētai informācijai (COMP_003) + darba laiki
+    working_hours = WorkingHourPublicSerializer(many=True, read_only=True)
 
     class Meta:
         model = Company
         fields = [
-            "id",
-            "name",
-            "description",
-            "country",
-            "city",
-            "address_line1",
-            "logo",
-            "phone",
-            "email",
-            "is_active",
-            "is_open_now",
-            "working_hours",       # read-only
-            "working_hours_data",  # write-only
+            "id", "name", "logo", "address_line", "city", "country",
+            "phone", "email", "description",
+            "working_hours",
+            "is_active", "is_blocked", "deleted_at",
+        ]
+        read_only_fields = ["is_blocked", "deleted_at"]
+
+
+class CompanyCreateUpdateSerializer(serializers.ModelSerializer):
+    # COMP_004/COMP_005: izveide/rediģēšana ar strukturētiem darba laikiem
+    working_hours = WorkingHourInputSerializer(many=True)
+
+    class Meta:
+        model = Company
+        fields = [
+            "name", "email", "phone", "country", "city", "address_line",
+            "description", "logo", "working_hours"
         ]
 
-    def get_is_open_now(self, obj):
-        return obj.is_open_now
+    def validate_name(self, value):
+        if not value or len(value) > 255:
+            raise serializers.ValidationError("Uzņēmuma nosaukums ir obligāts un līdz 255 simboliem.")
+        return value
+
+    def validate_email(self, value):
+        if not value or len(value) > 255:
+            raise serializers.ValidationError("E-pasts ir obligāts un līdz 255 simboliem.")
+        return value.lower().strip()
+
+    def validate_phone(self, value):
+        if not PHONE_RE.match(value.strip()):
+            raise serializers.ValidationError("Tālrunim jābūt ar valsts kodu (piem., +371...).")
+        return value.strip()
+
+    def validate_country(self, value):
+        if not value or len(value) > 255:
+            raise serializers.ValidationError("Valsts ir obligāta un līdz 255 simboliem.")
+        return value
+
+    def validate_city(self, value):
+        if not value or len(value) > 255:
+            raise serializers.ValidationError("Pilsēta ir obligāta un līdz 255 simboliem.")
+        return value
+
+    def validate_address_line(self, value):
+        if not value or len(value) > 255:
+            raise serializers.ValidationError("Adrese ir obligāta un līdz 255 simboliem.")
+        return value
+
+    def validate_description(self, value):
+        if not value or len(value) > 1000:
+            raise serializers.ValidationError("Apraksts ir obligāts un līdz 1000 simboliem.")
+        return value
+
+    def validate_working_hours(self, value):
+        # Jābūt 7 ierakstiem (katrai dienai)
+        if len(value) != 7:
+            raise serializers.ValidationError("Darba laikiem jābūt norādītiem katrai nedēļas dienai (7 ieraksti).")
+        weekdays = [x["weekday"] for x in value]
+        if sorted(weekdays) != [0, 1, 2, 3, 4, 5, 6]:
+            raise serializers.ValidationError("Darba laiku dienām jābūt 0..6 bez dublikātiem.")
+        return value
 
     def create(self, validated_data):
-        working_hours_data = validated_data.pop("working_hours_data", [])
+        # Izveido uzņēmumu + darba laikus
+        wh_data = validated_data.pop("working_hours")
         company = Company.objects.create(**validated_data)
 
-        for wh in working_hours_data:
-            CompanyWorkingHours.objects.create(company=company, **wh)
-
+        CompanyWorkingHour.objects.bulk_create([
+            CompanyWorkingHour(company=company, **row) for row in wh_data
+        ])
         return company
 
     def update(self, instance, validated_data):
-        working_hours_data = validated_data.pop("working_hours_data", None)
+        # Rediģē uzņēmumu + pārraksta darba laikus
+        wh_data = validated_data.pop("working_hours", None)
 
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
+        for k, v in validated_data.items():
+            setattr(instance, k, v)
         instance.save()
 
-        if working_hours_data is not None:
-            instance.working_hours.all().delete()
-            for wh in working_hours_data:
-                CompanyWorkingHours.objects.create(company=instance, **wh)
+        if wh_data is not None:
+            CompanyWorkingHour.objects.filter(company=instance).delete()
+            CompanyWorkingHour.objects.bulk_create([
+                CompanyWorkingHour(company=instance, **row) for row in wh_data
+            ])
 
         return instance

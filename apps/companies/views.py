@@ -1,295 +1,277 @@
-from django.db import models
-from django.db.models import Q, Sum, Count, F
-from rest_framework import viewsets
-from rest_framework.decorators import action
+from django.db.models import Q
+from rest_framework import status
+from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.exceptions import PermissionDenied, NotFound
 
-from .models import Company, CompanyWorkingHours
-from .serializers import CompanySerializer, CompanyWorkingHoursSerializer
-from apps.accounts.permissions import (
-    IsAuthenticatedAndNotBlocked,
-    user_has_role,
+from apps.accounts.models import User
+from .models import Company
+from .serializers import (
+    CompanyPublicSerializer,
+    CompanyAdminListSerializer,
+    CompanyDetailSerializer,
+    CompanyCreateUpdateSerializer,
 )
+from .permissions import IsSystemAdmin, IsCompanyAdmin
+from .utils import parse_working_hours
+
+def client_visible_queryset():
+    # Klientam redzami tikai: aktīvi, nebloķēti, nav soft-delete
+    return Company.objects.filter(deleted_at__isnull=True, is_active=True, is_blocked=False)
 
 
-class CompanyViewSet(viewsets.ModelViewSet):
+class CompanyListView(APIView):
     """
-    Uzņēmumu profili:
-
-      Klienti:
-        1) redz tikai aktīvos uzņēmumus (is_active=True)
-        2) var filtrēt un meklēt uzņēmumus pēc nosaukuma/adreses
-        3) var kārtot uzņēmumu sarakstu pēc nosaukuma
-
-      Darbinieks:
-        1) redz tikai savu uzņēmumu
-        2) nevar labot uzņēmuma profilu
-
-      Uzņēmuma admins:
-        1) redz un var labot tikai savu uzņēmumu
-           (nosaukums, kontakti, darba laiks, deaktivizēt / dzēst savu uzņēmumu)
-
-      Sistēmas admins:
-        1) redz visus uzņēmumus
-        2) var deaktivizēt (is_active=False) vai dzēst jebkuru uzņēmumu
-           (profila labošanu neveic)
+    COMP_001: skatīt uzņēmumu sarakstu
+    COMP_008: kārtot pēc nosaukuma (A-Ž / Ž-A)
+    COMP_009: meklēt pēc nosaukuma
     """
+    permission_classes = [AllowAny]
 
-    serializer_class = CompanySerializer
-    queryset = Company.objects.all()
-    permission_classes = [IsAuthenticatedAndNotBlocked]
+    def get(self, request):
+        user = request.user
 
-    def perform_create(self, serializer):
-        user = self.request.user
+        # Sistēma nosaka lietotāja lomu
+        if user.is_authenticated and user.role == User.Role.SYSTEM_ADMIN:
+            # SA redz visus (izņemot soft-delete pēc noklusējuma var rādīt vai nerādīt; te nerādām dzēstos)
+            qs = Company.objects.filter(deleted_at__isnull=True)
 
-        if user_has_role(user, ["company_admin", "system_admin"]):
-            serializer.save()
-            return
+            data = CompanyAdminListSerializer(qs.order_by("id"), many=True).data
+            return Response(data, status=status.HTTP_200_OK)
 
-        raise PermissionDenied("You are not allowed to create companies.")
+        # Klients (vai viesis) redz publiski pieejamos uzņēmumus + tikai "atvērtos"
+        qs = client_visible_queryset()
 
-    def get_queryset(self):
-        user = self.request.user
-        qs = Company.objects.all()
+        # COMP_009: meklēšana (meklēšanas frāze līdz 255)
+        search = request.query_params.get("search")
+        if search:
+            if len(search) > 255:
+                return Response({"detail": "Meklēšanas frāze nedrīkst pārsniegt 255 simbolus."},
+                                status=status.HTTP_400_BAD_REQUEST)
+            qs = qs.filter(name__icontains=search)
 
-        # --- bāzes redzamība pēc lomām --------------------------------------
-        if user_has_role(user, ["system_admin"]):
-            # SA redz visus
-            pass
-        elif user_has_role(user, ["company_admin", "employee"]):
-            # UA / DA redz tikai savu uzņēmumu
-            qs = qs.filter(id=user.company_id)
-        elif user_has_role(user, ["client"]):
-            # Klients redz tikai aktīvus uzņēmumus
-            qs = qs.filter(is_active=True)
+        # COMP_008: kārtošana pēc nosaukuma (A-Ž vai Ž-A)
+        sort = request.query_params.get("sort")  # "asc" vai "desc"
+        if sort == "desc":
+            qs = qs.order_by("-name")
         else:
-            return Company.objects.none()
+            qs = qs.order_by("name")
 
-        # --- filtrēšana / meklēšana / kārtošana ------------------------------
-        params = self.request.query_params
+        # “Atvērts” filtrs: atstājam tikai tos, kas šobrīd atvērti
+        # (prasība: aktīvs + nebloķēts + atvērts)
+        qs = [c for c in qs if c.is_open_now()]
 
-        country = params.get("country")
-        city = params.get("city")
-        address = params.get("address")
-        search = params.get("search")
-        ordering = params.get("ordering")
+        if (search or request.query_params.get("city")) and len(qs) == 0:
+            # P_006: nav atrasts neviens uzņēmums pēc filtra/meklēšanas
+            return Response({"code": "P_006", "detail": "Nav atrasts neviens uzņēmums."}, status=status.HTTP_200_OK)
 
-        if country:
-            qs = qs.filter(country__icontains=country)
+        return Response(CompanyPublicSerializer(qs, many=True).data, status=status.HTTP_200_OK)
+
+
+class CompanyCitiesView(APIView):
+    """
+    COMP_002: izgūst pieejamo pilsētu sarakstu filtram
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        qs = client_visible_queryset().values_list("city", flat=True).distinct().order_by("city")
+        city = request.query_params.get("city")
+        if city:
+            qs = qs.filter(city=city)
+        return Response({"cities": list(qs)}, status=status.HTTP_200_OK)
+
+class CompanyListFilteredView(APIView):
+    """
+    COMP_002: filtrēt pēc pilsētas
+    (Atskaitot bloķētos/neaktīvos/soft-deleted un “slēgtos” uzņēmumus)
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        city = request.query_params.get("city")
+        qs = client_visible_queryset()
 
         if city:
-            qs = qs.filter(city__icontains=city)
+            qs = qs.filter(city=city)
 
-        if address:
-            qs = qs.filter(address_line1__icontains=address)
+        # “Atvērts” filtrs
+        qs = [c for c in qs if c.is_open_now()]
 
-        if search:
-            qs = qs.filter(
-                Q(name__icontains=search)
-                | Q(city__icontains=search)
-                | Q(address_line1__icontains=search)
-                | Q(country__icontains=search)
-            )
+        if city and len(qs) == 0:
+            return Response({"code": "P_006", "detail": "Nav atrasts neviens uzņēmums."}, status=status.HTTP_200_OK)
 
-        if ordering in ("name", "-name"):
-            qs = qs.order_by(ordering)
+        return Response(CompanyPublicSerializer(qs, many=True).data, status=status.HTTP_200_OK)
 
-        return qs
 
-    def update(self, request, *args, **kwargs):
-        user = self.request.user
-        instance = self.get_object()
+class CompanyDetailView(APIView):
+    """
+    COMP_003: detalizēta informācija
+    - Klients redz tikai publiski pieejamu (aktīvs, nebloķēts) uzņēmumu
+    - UA redz tikai savu uzņēmumu (pēc user.company_id)
+    """
+    permission_classes = [AllowAny]
 
-        # Sistēmas admins profilu nelabo, tikai deaktivizē/dzēš
-        if user_has_role(user, ["system_admin"]):
-            raise PermissionDenied(
-                "System admin can only deactivate/delete companies, not edit their profile."
-            )
+    def get(self, request, company_id: int):
+        user = request.user
 
-        if user_has_role(user, ["company_admin"]) and instance.id != user.company_id:
-            raise PermissionDenied("You can edit only your own company.")
+        if user.is_authenticated and user.role == User.Role.COMPANY_ADMIN:
+            # UA drīkst skatīt tikai savu uzņēmumu
+            if not user.company_id or user.company_id != company_id:
+                raise PermissionDenied("Piekļuve ir liegta.")
+            company = Company.objects.filter(id=company_id, deleted_at__isnull=True).first()
+            if not company:
+                raise NotFound("Uzņēmums nav atrasts.")
+            return Response(CompanyDetailSerializer(company).data, status=status.HTTP_200_OK)
 
-        # darbiniekam un klientam nav atļauts
-        if not user_has_role(user, ["company_admin"]):
-            raise PermissionDenied("You are not allowed to edit companies.")
+        # Klients/viesis: tikai publiski pieejams
+        company = client_visible_queryset().filter(id=company_id).first()
+        if not company:
+            raise PermissionDenied("Uzņēmuma profils nav pieejams publiskai apskatei.")
+        return Response(CompanyDetailSerializer(company).data, status=status.HTTP_200_OK)
 
-        return super().update(request, *args, **kwargs)
 
-    def partial_update(self, request, *args, **kwargs):
-        user = self.request.user
-        instance = self.get_object()
+class CompanyCreateView(APIView):
+    """
+    COMP_004: izveidot uzņēmumu
+    - tikai UA
+    - tikai, ja UA vēl nav uzņēmuma
+    - darba laiki obligāti (7 dienas)
+    - logo obligāts
+    """
+    permission_classes = [IsAuthenticated, IsCompanyAdmin]
 
-        if user_has_role(user, ["system_admin"]):
-            raise PermissionDenied(
-                "System admin can only deactivate/delete companies, not edit their profile."
-            )
+    def post(self, request):
+        user: User = request.user
 
-        if user_has_role(user, ["company_admin"]) and instance.id != user.company_id:
-            raise PermissionDenied("You can edit only your own company.")
+        if user.company_id is not None:
+            raise PermissionDenied("Uzņēmuma profils jau ir izveidots.")
 
-        if not user_has_role(user, ["company_admin"]):
-            raise PermissionDenied("You are not allowed to edit companies.")
+        # Parsē darba laikus no FormData (ja nepieciešams)
+        data = request.data.copy()
+        data["working_hours"] = parse_working_hours(data)
 
-        return super().partial_update(request, *args, **kwargs)
+        s = CompanyCreateUpdateSerializer(data=data)
+        s.is_valid(raise_exception=True)
+        company = s.save()
 
-    def destroy(self, request, *args, **kwargs):
-        user = self.request.user
-        instance = self.get_object()
+        # piesaiste UA -> Company
+        user.company = company
+        user.save(update_fields=["company_id"])
 
-        # SA – var dzēst jebkuru uzņēmumu
-        if user_has_role(user, ["system_admin"]):
-            return super().destroy(request, *args, **kwargs)
-
-        # UA – var dzēst tikai savu uzņēmumu
-        if user_has_role(user, ["company_admin"]) and instance.id == user.company_id:
-            return super().destroy(request, *args, **kwargs)
-
-        raise PermissionDenied("You are not allowed to delete this company.")
-
-    @action(detail=True, methods=["post"])
-    def deactivate(self, request, pk=None):
-        """
-        POST /api/companies/<id>/deactivate/
-          - SA var deaktivizēt jebkuru
-          - UA var deaktivizēt tikai savu uzņēmumu
-        """
-        user = self.request.user
-        company = self.get_object()
-
-        if user_has_role(user, ["system_admin"]):
-            pass
-        elif user_has_role(user, ["company_admin"]) and company.id == user.company_id:
-            pass
-        else:
-            raise PermissionDenied("You are not allowed to deactivate this company.")
-
-        company.is_active = False
-        company.save()
-        serializer = self.get_serializer(company)
-        return Response(serializer.data)
-
-    @action(detail=True, methods=["post"])
-    def activate(self, request, pk=None):
-        """
-        POST /api/companies/<id>/activate/
-          - tikai SA
-        """
-        user = self.request.user
-        company = self.get_object()
-
-        if not user_has_role(user, ["system_admin"]):
-            raise PermissionDenied("Only system admins can activate companies.")
-
-        company.is_active = True
-        company.save()
-        serializer = self.get_serializer(company)
-        return Response(serializer.data)
-
-    @action(detail=True, methods=["get"])
-    def analytics(self, request, pk=None):
-        """
-        GET /api/companies/<id>/analytics/
-        - company_admin: tikai savai
-        """
-        user = self.request.user
-        company = self.get_object()
-
-        if user_has_role(user, ["company_admin"]) and company.id == user.company_id:
-            pass
-        else:
-            raise PermissionDenied("You are not allowed to view analytics for this company.")
-
-        orders = company.orders.all()
-        items = company.products.all()
-
-        total_orders = orders.count()
-        revenue = orders.aggregate(total=Sum("total_amount")).get("total") or 0
-        by_status = orders.values("status").annotate(count=Count("id"), revenue=Sum("total_amount"))
-        top_products = (
-            company.products.annotate(
-                order_count=Count("order_items"),
-                quantity_sold=Sum("order_items__quantity"),
-                revenue=Sum(F("order_items__line_total")),
-            )
-            .filter(order_count__gt=0)
-            .order_by("-revenue")[:5]
-            .values("id", "name", "order_count", "quantity_sold", "revenue")
+        return Response(
+            {"code": "P_001", "detail": "Uzņēmums ir veiksmīgi izveidots.", "company_id": company.id},
+            status=status.HTTP_201_CREATED,
         )
 
-        low_stock = company.inventory_items.filter(quantity__lt=F("min_quantity")).count()
 
-        data = {
-            "company_id": company.id,
-            "company_name": company.name,
-            "total_orders": total_orders,
-            "total_revenue": revenue,
-            "orders_by_status": list(by_status),
-            "top_products": list(top_products),
-            "low_stock_items": low_stock,
-        }
-        return Response(data)
-
-
-class CompanyWorkingHoursViewSet(viewsets.ModelViewSet):
+class CompanyUpdateView(APIView):
     """
-    Uzņēmuma darba laiks:
-      - SA: redz/labo visiem uzņēmumiem
-      - UA: redz/labo tikai sava uzņēmuma darba laiku
-      - Darbinieks: var tikai skatīt sava uzņēmuma darba laiku
-      - Klients: var skatīt aktīvo uzņēmumu darba laiku
+    COMP_005: rediģēt uzņēmumu
+    - tikai UA savam uzņēmumam
+    - darba laiki obligāti (7 dienas)
+    - logo: ja augšupielādē, jābūt derīgam; (lauki pēc serializer)
     """
+    permission_classes = [IsAuthenticated, IsCompanyAdmin]
 
-    serializer_class = CompanyWorkingHoursSerializer
-    queryset = CompanyWorkingHours.objects.all()
-    permission_classes = [IsAuthenticatedAndNotBlocked]
+    def put(self, request):
+        user: User = request.user
+        if not user.company_id:
+            raise NotFound("Uzņēmums nav atrasts.")
 
-    def _ensure_edit_permission(self, instance: CompanyWorkingHours):
-        user = self.request.user
+        company = Company.objects.filter(id=user.company_id, deleted_at__isnull=True).first()
+        if not company:
+            raise NotFound("Uzņēmums nav atrasts.")
 
-        if user_has_role(user, ["system_admin"]):
-            return
+        data = request.data.copy()
 
-        if user_has_role(user, ["company_admin"]) and instance.company_id == user.company_id:
-            return
+        # Darba laiki ir obligāti arī rediģējot (pēc prasības)
+        data["working_hours"] = parse_working_hours(data)
 
-        raise PermissionDenied("You are not allowed to modify these working hours.")
+        s = CompanyCreateUpdateSerializer(instance=company, data=data)
+        s.is_valid(raise_exception=True)
+        s.save()
 
-    def get_queryset(self):
-        user = self.request.user
-        qs = CompanyWorkingHours.objects.all()
+        return Response(
+            {"code": "P_002", "detail": "Uzņēmuma profils ir veiksmīgi atjaunināts."},
+            status=status.HTTP_200_OK,
+        )
 
-        if user_has_role(user, ["system_admin"]):
-            return qs
 
-        if user_has_role(user, ["company_admin", "employee"]):
-            return qs.filter(company=user.company)
+class CompanySoftDeleteMyView(APIView):
+    """
+    COMP_006: dzēst savu uzņēmumu (soft-delete)
+    - tikai UA savam uzņēmumam
+    """
+    permission_classes = [IsAuthenticated, IsCompanyAdmin]
 
-        if user_has_role(user, ["client"]):
-            return qs.filter(company__is_active=True)
+    def post(self, request):
+        user: User = request.user
+        if not user.company_id:
+            raise NotFound("Uzņēmums nav atrasts.")
 
-        return qs.none()
+        company = Company.objects.filter(id=user.company_id, deleted_at__isnull=True).first()
+        if not company:
+            raise NotFound("Uzņēmums nav atrasts.")
 
-    def perform_create(self, serializer):
-        user = self.request.user
-        if user_has_role(user, ["company_admin"]):
-            serializer.save(company=user.company)
-        elif user_has_role(user, ["system_admin"]):
-            serializer.save()
-        else:
-            raise PermissionDenied("You are not allowed to create working hours entries.")
+        company.soft_delete()
+        return Response({"code": "P_004", "detail": "Uzņēmuma profils ir deaktivizēts (soft-delete)."},
+                        status=status.HTTP_200_OK)
 
-    def update(self, request, *args, **kwargs):
-        instance = self.get_object()
-        self._ensure_edit_permission(instance)
-        return super().update(request, *args, **kwargs)
 
-    def partial_update(self, request, *args, **kwargs):
-        instance = self.get_object()
-        self._ensure_edit_permission(instance)
-        return super().partial_update(request, *args, **kwargs)
+class CompanyDeactivateMyView(APIView):
+    """
+    COMP_011: deaktivizēt savu uzņēmumu
+    - tikai UA
+    """
+    permission_classes = [IsAuthenticated, IsCompanyAdmin]
 
-    def destroy(self, request, *args, **kwargs):
-        instance = self.get_object()
-        self._ensure_edit_permission(instance)
-        return super().destroy(request, *args, **kwargs)
+    def post(self, request):
+        user: User = request.user
+        if not user.company_id:
+            raise NotFound("Uzņēmums nav atrasts.")
+
+        company = Company.objects.filter(id=user.company_id, deleted_at__isnull=True).first()
+        if not company:
+            raise NotFound("Uzņēmums nav atrasts.")
+
+        company.is_active = False
+        company.save(update_fields=["is_active"])
+
+        return Response({"code": "P_017", "detail": "Uzņēmums ir deaktivizēts."},
+                        status=status.HTTP_200_OK)
+
+
+class AdminCompanySoftDeleteView(APIView):
+    """
+    COMP_007: SA dzēš uzņēmumu (soft-delete)
+    """
+    permission_classes = [IsAuthenticated, IsSystemAdmin]
+
+    def post(self, request, company_id: int):
+        company = Company.objects.filter(id=company_id, deleted_at__isnull=True).first()
+        if not company:
+            raise NotFound("Uzņēmums nav atrasts.")
+
+        company.soft_delete()
+        return Response({"code": "P_004", "detail": "Uzņēmums ir dzēsts (soft-delete)."},
+                        status=status.HTTP_200_OK)
+
+
+class AdminCompanyBlockView(APIView):
+    """
+    COMP_010: SA bloķē uzņēmumu
+    """
+    permission_classes = [IsAuthenticated, IsSystemAdmin]
+
+    def post(self, request, company_id: int):
+        company = Company.objects.filter(id=company_id, deleted_at__isnull=True).first()
+        if not company:
+            raise NotFound("Uzņēmums nav atrasts.")
+
+        company.is_blocked = True
+        company.save(update_fields=["is_blocked"])
+
+        return Response({"code": "P_018", "detail": "Uzņēmums ir bloķēts."},
+                        status=status.HTTP_200_OK)

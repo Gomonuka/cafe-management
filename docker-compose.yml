@@ -4,29 +4,59 @@ services:
     image: postgres:16-alpine
     container_name: cafe_db
     restart: unless-stopped
-    env_file: .env
     environment:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
     volumes:
-      - ./postgres-data:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cafe} -d ${POSTGRES_DB:-cafe}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
   backend:
     build:
-      context: .
+      context: ./
       dockerfile: Dockerfile
     container_name: cafe_backend
     restart: unless-stopped
-    env_file: .env
-    depends_on:
-      - db
-    ports:
-      - "8000:8000"
+    env_file:
+      - .env
     volumes:
       - .:/app
+      - media:/app/media
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
     command: >
-      sh -c "python manage.py migrate &&
-             python manage.py runserver 0.0.0.0:8000"
+      sh -c "
+      python manage.py migrate &&
+      python manage.py runserver 0.0.0.0:8000
+      "
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: cafe_frontend
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    depends_on:
+      - backend
+    command: >
+      sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5173"
+
+volumes:
+  pgdata:
+  media:

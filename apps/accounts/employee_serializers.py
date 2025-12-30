@@ -2,17 +2,21 @@ from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 from apps.accounts.models import User
 
-class RegisterSerializer(serializers.ModelSerializer):
+class EmployeeListSerializer(serializers.ModelSerializer):
+    # USER_010: darbinieku saraksts (ID + username)
+    class Meta:
+        model = User
+        fields = ["id", "username"]
+
+class EmployeeCreateSerializer(serializers.ModelSerializer):
+    # USER_011: izveidot darbinieku
     password = serializers.CharField(write_only=True)
-    auto_login = serializers.BooleanField(required=False, default=False)  # “Ienākt kontā uzreiz”
-    role = serializers.ChoiceField(choices=[User.Role.CLIENT, User.Role.COMPANY_ADMIN])
 
     class Meta:
         model = User
-        fields = ["username", "email", "role", "password", "auto_login"]
+        fields = ["username", "first_name", "last_name", "email", "password", "avatar"]
 
     def validate_username(self, value):
-        # Lietotājvārds: obligāts, <=255, unikāls
         if len(value) > 255:
             raise serializers.ValidationError("Lietotājvārds nedrīkst pārsniegt 255 simbolus.")
         if User.objects.all_with_deleted().filter(username=value).exists():
@@ -20,7 +24,6 @@ class RegisterSerializer(serializers.ModelSerializer):
         return value
 
     def validate_email(self, value):
-        # E-pasts: obligāts, <=255, derīgs formāts, unikāls
         v = value.lower().strip()
         if len(v) > 255:
             raise serializers.ValidationError("E-pasts nedrīkst pārsniegt 255 simbolus.")
@@ -29,42 +32,31 @@ class RegisterSerializer(serializers.ModelSerializer):
         return v
 
     def validate_password(self, value):
-        # Parole: vismaz 8 simboli + Django password validation
         if len(value) < 8:
             raise serializers.ValidationError("Parolei jābūt vismaz 8 simbolus garai.")
         validate_password(value)
         return value
 
     def create(self, validated_data):
-        # Izveido jaunu lietotāju ar izvēlēto lomu (USER_001)
-        auto_login = validated_data.pop("auto_login", False)
+        # Darbiniekam vienmēr loma = DA, company paņemam no konteksta
         password = validated_data.pop("password")
+        company = self.context["company"]
 
         user = User(**validated_data)
-        user.is_active = True  # konts aktīvs
-        user.set_password(password)  # parole šifrētā veidā
+        user.role = User.Role.EMPLOYEE
+        user.company = company
+        user.is_active = True
+        user.set_password(password)
         user.save()
-
-        # auto_login apstrādāsim view līmenī (atgriežot tokenus)
-        user._auto_login = auto_login  # tikai iekšējai vajadzībai
         return user
 
-
-class ProfileReadSerializer(serializers.ModelSerializer):
-    # USER_004: profila apskate
-    class Meta:
-        model = User
-        fields = ["id", "avatar", "username", "first_name", "last_name", "email", "role", "company"]
-
-
-class ProfileUpdateSerializer(serializers.ModelSerializer):
-    # USER_005: profila rediģēšana
+class EmployeeUpdateSerializer(serializers.ModelSerializer):
+    # USER_012: rediģēt darbinieku (username, vārds, uzvārds, email, avatar, jauna parole)
     new_password = serializers.CharField(write_only=True, required=False, allow_blank=True)
-    repeat_password = serializers.CharField(write_only=True, required=False, allow_blank=True)
 
     class Meta:
         model = User
-        fields = ["avatar", "username", "first_name", "last_name", "email", "new_password", "repeat_password"]
+        fields = ["username", "first_name", "last_name", "email", "avatar", "new_password"]
 
     def validate_username(self, value):
         if len(value) > 255:
@@ -83,32 +75,18 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("E-pasts jau eksistē sistēmā.")
         return v
 
-    def validate(self, attrs):
-        # Ja tiek mainīta parole, atkārtotā parole ir obligāta un jāsakrīt
-        new_password = attrs.get("new_password") or ""
-        repeat_password = attrs.get("repeat_password") or ""
-
-        if new_password:
-            if len(new_password) < 8:
-                raise serializers.ValidationError({"new_password": "Parolei jābūt vismaz 8 simbolus garai."})
-            if not repeat_password:
-                raise serializers.ValidationError({"repeat_password": "Atkārtota parole ir obligāta."})
-            if new_password != repeat_password:
-                raise serializers.ValidationError({"repeat_password": "Atkārtotā parole nesakrīt ar jauno paroli."})
-            validate_password(new_password)
-
-        return attrs
+    def validate_new_password(self, value):
+        if value:
+            if len(value) < 8:
+                raise serializers.ValidationError("Parolei jābūt vismaz 8 simbolus garai.")
+            validate_password(value)
+        return value
 
     def update(self, instance, validated_data):
-        # Atjaunina profila datus + (ja ir) paroli (USER_005)
         new_password = validated_data.pop("new_password", "")
-        validated_data.pop("repeat_password", None)
-
         for k, v in validated_data.items():
             setattr(instance, k, v)
-
         if new_password:
             instance.set_password(new_password)
-
         instance.save()
         return instance

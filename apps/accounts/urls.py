@@ -1,19 +1,35 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from .views_auth import RegisterView, LoginView, LogoutView
-from .views_password import PasswordResetRequestView, PasswordResetConfirmView
+from .auth_views import EmailLoginView
+from .views import RegisterView, ProfileView, DeleteMeView, LogoutView
+from .reset_views import PasswordResetRequestView, PasswordResetConfirmView
+from .admin_views import AdminUserListView, AdminUserSoftDeleteView, AdminUserBlockView
+from .employee_views import EmployeeListView, EmployeeCreateView, EmployeeUpdateView, EmployeeSoftDeleteView
 
 urlpatterns = [
-    path("register/", RegisterView.as_view(), name="register"),
-    path("login/", LoginView.as_view(), name="login"),
-    path("refresh/", TokenRefreshView.as_view(), name="refresh"),
-    path("logout/", LogoutView.as_view(), name="logout"),
+    # USER_001, USER_002, USER_003
+    path("auth/register/", RegisterView.as_view()),
+    path("auth/login/", EmailLoginView.as_view()),
+    path("auth/refresh/", TokenRefreshView.as_view()),
+    path("auth/logout/", LogoutView.as_view()),
 
-    path("password-reset/", PasswordResetRequestView.as_view(), name="password-reset"),
-    path(
-        "password-reset/confirm/",
-        PasswordResetConfirmView.as_view(),
-        name="password-reset-confirm",
-    ),
+    # USER_004, USER_005, USER_006
+    path("me/", ProfileView.as_view()),
+    path("me/delete/", DeleteMeView.as_view()),
+
+    # USER_007
+    path("auth/password-reset/request/", PasswordResetRequestView.as_view()),
+    path("auth/password-reset/confirm/", PasswordResetConfirmView.as_view()),
+
+    # USER_008, USER_009, USER_014 (SA)
+    path("admin/users/", AdminUserListView.as_view()),
+    path("admin/users/<int:user_id>/delete/", AdminUserSoftDeleteView.as_view()),
+    path("admin/users/<int:user_id>/block/", AdminUserBlockView.as_view()),
+
+    # USER_010..013 (UA)
+    path("company/employees/", EmployeeListView.as_view()),
+    path("company/employees/create/", EmployeeCreateView.as_view()),
+    path("company/employees/<int:employee_id>/update/", EmployeeUpdateView.as_view()),
+    path("company/employees/<int:employee_id>/delete/", EmployeeSoftDeleteView.as_view()),
 ]

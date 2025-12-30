@@ -1,95 +1,96 @@
-import json
-import os
-import http.client
-from typing import Dict, Optional
-
+import re
+import requests
 from django.conf import settings
 from django.utils import timezone
-from django.core.mail import send_mail
+from rest_framework.exceptions import ValidationError
 
 from .models import EmailTemplate, EmailLog
 
 
-def _render(text: str, context: Optional[Dict]) -> str:
-    if not context:
-        return text
-    try:
-        return text.format(**context)
-    except Exception:
-        return text
+_VAR_RE = re.compile(r"{{\s*([a-zA-Z0-9_\.]+)\s*}}")
 
 
-def _log_email(template, subject, recipient, status, receiver_user=None):
-    EmailLog.objects.create(
-        template=template,
-        subject=subject,
-        recipient=recipient,
-        sent_at=timezone.now() if status == "sent" else None,
-        status=status,
-        receiver_user=receiver_user,
-    )
+def render_template(text: str, context: dict) -> str:
+    """
+    Aizvieto {{mainīgos}} ar vērtībām no context.
+    Atbalsta arī punktu ceļus piem., {{order.id}} ja context satur dictus.
+    """
+    def resolve(path: str):
+        parts = path.split(".")
+        cur = context
+        for p in parts:
+            if isinstance(cur, dict) and p in cur:
+                cur = cur[p]
+            else:
+                return ""  # ja nav atrasts, aizvieto ar tukšu
+        return str(cur)
+
+    return _VAR_RE.sub(lambda m: resolve(m.group(1)), text)
 
 
-def _send_via_brevo(subject: str, body: str, to_email: str) -> bool:
-    api_key = os.getenv("BREVO_API_KEY")
-    if not api_key:
-        return False
+def brevo_send_email(to_email: str, subject: str, html_or_text: str):
+    """
+    Nosūta e-pastu caur Brevo API.
+    Ja neizdodas - izmet kļūdu.
+    """
+    if not settings.BREVO_API_KEY:
+        raise ValidationError("BREVO_API_KEY nav konfigurēts.")
 
-    from_email = getattr(settings, "DEFAULT_FROM_EMAIL", None) or to_email
-
-    payload = {
-        "sender": {"email": from_email},
-        "to": [{"email": to_email}],
-        "subject": subject,
-        "textContent": body,
+    url = "https://api.brevo.com/v3/smtp/email"
+    headers = {
+        "api-key": settings.BREVO_API_KEY,
+        "Content-Type": "application/json",
+        "accept": "application/json",
     }
 
-    try:
-        conn = http.client.HTTPSConnection("api.brevo.com")
-        headers = {
-            "api-key": api_key,
-            "accept": "application/json",
-            "content-type": "application/json",
-        }
-        conn.request("POST", "/v3/smtp/email", body=json.dumps(payload), headers=headers)
-        resp = conn.getresponse()
-        return 200 <= resp.status < 300
-    except Exception:
-        return False
+    payload = {
+        "sender": {"email": settings.BREVO_SENDER_EMAIL, "name": settings.BREVO_SENDER_NAME},
+        "to": [{"email": to_email}],
+        "subject": subject,
+        # Brevo ļauj gan htmlContent, gan textContent. Te sūtām kā HTML (var būt arī plain text).
+        "htmlContent": html_or_text,
+    }
+
+    r = requests.post(url, json=payload, headers=headers, timeout=15)
+    if r.status_code >= 400:
+        raise ValidationError(f"Brevo kļūda: {r.status_code} {r.text}")
 
 
-def send_templated_email(
-    code: str,
+def send_email_from_template(
+    *,
+    template_code: str,
     to_email: str,
-    context: Optional[Dict] = None,
-    receiver_user=None,
-) -> None:
+    context: dict,
+    company_id=None,
+) -> EmailLog | None:
     """
-    Render template by code, try Brevo API, fallback to Django send_mail; always log.
+    Izvēlas šablonu pēc koda, pārbauda active, renderē un sūta.
+    Izveido žurnālu: created -> sent/failed.
     """
-    if not to_email:
-        return
+    tpl = EmailTemplate.objects.filter(code=template_code).first()
+    if not tpl or not tpl.is_active:
+        # Ja šablons nav aktīvs - neko nesūtam (prasība: pārbaudīt active)
+        return None
 
-    template = EmailTemplate.objects.filter(code=code, is_active=True).first()
-    subject = template.subject if template else code
-    body = template.body if template else ""
+    subject = render_template(tpl.subject, context)[:255]
+    content = render_template(tpl.content, context)[:5000]
 
-    subject = _render(subject, context)
-    body = _render(body, context)
+    log = EmailLog.objects.create(
+        company_id=company_id,
+        recipient=to_email,
+        subject=subject,
+        status=EmailLog.Status.CREATED,
+    )
 
-    sent = _send_via_brevo(subject, body, to_email)
-
-    if not sent:
-        try:
-            send_mail(
-                subject=subject,
-                message=body,
-                from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
-                recipient_list=[to_email],
-                fail_silently=True,
-            )
-            sent = True
-        except Exception:
-            sent = False
-
-    _log_email(template, subject, to_email, "sent" if sent else "failed", receiver_user)
+    try:
+        brevo_send_email(to_email, subject, content)
+        log.status = EmailLog.Status.SENT
+        log.sent_at = timezone.now()
+        log.save(update_fields=["status", "sent_at"])
+    except Exception as e:
+        log.status = EmailLog.Status.FAILED
+        log.error_message = str(e)[:1000]
+        log.save(update_fields=["status", "error_message"])
+        # Šeit metām kļūdu tikai reset gadījumā (NOTIF_008), pārējos var ignorēt
+        # Tāpēc šeit nemetam ārā - caller izlems.
+    return log

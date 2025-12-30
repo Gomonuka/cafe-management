@@ -1,134 +1,85 @@
-from django.contrib.auth import get_user_model
-from rest_framework import viewsets
-from rest_framework.exceptions import PermissionDenied
+from rest_framework import generics, status
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.views import APIView
+from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 
-from .serializers import UserSerializer
-from .permissions import (
-    IsAnonymousUser,
-    IsAuthenticatedAndNotBlocked,
-    IsCompanyAdmin,
-    IsSystemAdmin,
-    IsCompanyAdminOrSystemAdmin,
-    user_has_role,
-)
-from apps.notifications.services import send_templated_email
-
-User = get_user_model()
+from apps.accounts.models import User
+from .serializers import RegisterSerializer, ProfileReadSerializer, ProfileUpdateSerializer
 
 
-class UserViewSet(viewsets.ModelViewSet):
-    """
-    User management:
-        System admin:
-          - can see all users
-          - can block/delete any profile
+class RegisterView(generics.CreateAPIView):
+    # USER_001: konta izveide (KL/UA)
+    permission_classes = [AllowAny]
+    serializer_class = RegisterSerializer
 
-        Company admin:
-          - sees only their employees (role='employee' in their company)
-          - can create/edit/delete only their employees
-    """
+    def create(self, request, *args, **kwargs):
+        s = self.get_serializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        user = s.save()
 
-    serializer_class = UserSerializer
-    queryset = User.objects.all()
+        # Ja izvēlēts “ienākt uzreiz” – atgriež JWT tokenus (un FE var novirzīt uz profilu)
+        if getattr(user, "_auto_login", False):
+            refresh = RefreshToken.for_user(user)
+            return Response(
+                {
+                    "code": "P_001",  # “konts izveidots” (te tikai kā piemērs)
+                    "detail": "Konts ir veiksmīgi izveidots.",
+                    "access": str(refresh.access_token),
+                    "refresh": str(refresh),
+                },
+                status=status.HTTP_201_CREATED,
+            )
 
-    def get_permissions(self):
-        user = self.request.user
+        return Response(
+            {"code": "P_001", "detail": "Konts ir veiksmīgi izveidots."},
+            status=status.HTTP_201_CREATED,
+        )
 
-        if self.action == "create":
-            # Self-registration for clients or company admins
-            if not user or not user.is_authenticated:
-                return [IsAnonymousUser()]
-            return [IsAuthenticatedAndNotBlocked(), IsCompanyAdminOrSystemAdmin()]
 
-        if user_has_role(user, ["system_admin"]):
-            return [IsAuthenticatedAndNotBlocked(), IsSystemAdmin()]
+class ProfileView(APIView):
+    # USER_004 + USER_005
+    permission_classes = [IsAuthenticated]
 
-        if user_has_role(user, ["company_admin"]):
-            return [IsAuthenticatedAndNotBlocked(), IsCompanyAdmin()]
+    def get(self, request):
+        # Profila datu apskate (USER_004)
+        return Response(ProfileReadSerializer(request.user).data, status=status.HTTP_200_OK)
 
-        return [IsAuthenticatedAndNotBlocked(), IsSystemAdmin()]
+    def patch(self, request):
+        # Profila datu rediģēšana (USER_005)
+        s = ProfileUpdateSerializer(instance=request.user, data=request.data, partial=True)
+        s.is_valid(raise_exception=True)
+        s.save()
+        return Response({"code": "P_002", "detail": "Profila dati ir veiksmīgi atjaunināti."}, status=status.HTTP_200_OK)
 
-    def get_queryset(self):
-        user = self.request.user
-        qs = User.objects.all()
 
-        search = self.request.query_params.get("search")
+class DeleteMeView(APIView):
+    # USER_006: dzēst savu profilu (soft-delete) + atslēgties
+    permission_classes = [IsAuthenticated]
 
-        if user_has_role(user, ["system_admin"]):
-            if search:
-                qs = qs.filter(username__icontains=search)
-            return qs
+    def post(self, request):
+        request.user.soft_delete()
 
-        if user_has_role(user, ["company_admin"]):
-            qs = qs.filter(company=user.company, role="employee")
-            if search:
-                qs = qs.filter(username__icontains=search)
-            return qs
+        # JWT gadījumā sesija ir FE pusē, bet mēs varam nobloķēt refresh tokenu, ja FE to atsūta
+        # Šeit pietiek ar profila deaktivizēšanu; StrictJWTAuthentication bloķēs piekļuvi.
+        return Response({"code": "P_004", "detail": "Profils ir deaktivizēts."}, status=status.HTTP_200_OK)
 
-        return qs.none()
 
-    def perform_create(self, serializer):
-        user = self.request.user
+class LogoutView(APIView):
+    # USER_003: atslēgties (refresh token blacklisting)
+    permission_classes = [IsAuthenticated]
 
-        # Anonymous users: only client or company admin registration
-        if not user or not user.is_authenticated:
-            role = serializer.validated_data.get("role") or "client"
-            if role not in ("client", "company_admin"):
-                raise PermissionDenied(
-                    "Only client or company admin registration is allowed."
-                )
-            instance = serializer.save(role=role)
-            if instance.email:
-                send_templated_email(
-                    code="user_registered",
-                    to_email=instance.email,
-                    context={"username": instance.username, "role": instance.role},
-                    receiver_user=instance,
-                )
-            return
+    def post(self, request):
+        # FE atsūta refresh tokenu, lai to iekļautu blacklist
+        refresh = request.data.get("refresh")
+        if not refresh:
+            return Response({"detail": "Refresh token is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-        if user_has_role(user, ["company_admin"]):
-            serializer.save(company=user.company, role="employee")
-            return
+        try:
+            token = RefreshToken(refresh)
+            token.blacklist()
+        except Exception:
+            return Response({"detail": "Invalid refresh token."}, status=status.HTTP_400_BAD_REQUEST)
 
-        if user_has_role(user, ["system_admin"]):
-            instance = serializer.save()
-            if instance.email:
-                send_templated_email(
-                    code="user_created",
-                    to_email=instance.email,
-                    context={"username": instance.username, "role": instance.role},
-                    receiver_user=instance,
-                )
-            return
-
-        raise PermissionDenied("You are not allowed to create users.")
-
-    def perform_update(self, serializer):
-        user = self.request.user
-        instance = self.get_object()
-
-        if user_has_role(user, ["system_admin"]):
-            serializer.save()
-            return
-
-        if user_has_role(user, ["company_admin"]):
-            if instance.role != "employee" or instance.company_id != user.company_id:
-                raise PermissionDenied("You can manage only your company employees.")
-            serializer.save(company=user.company, role="employee")
-            return
-
-        raise PermissionDenied("You are not allowed to update this user.")
-
-    def perform_destroy(self, instance):
-        user = self.request.user
-
-        if user_has_role(user, ["system_admin"]):
-            return super().perform_destroy(instance)
-
-        if user_has_role(user, ["company_admin"]):
-            if instance.role != "employee" or instance.company_id != user.company_id:
-                raise PermissionDenied("You can delete only your company employees.")
-            return super().perform_destroy(instance)
-
-        raise PermissionDenied("You are not allowed to delete this user.")
+        return Response({"detail": "Logged out."}, status=status.HTTP_200_OK)

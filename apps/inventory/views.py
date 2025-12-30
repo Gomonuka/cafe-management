@@ -1,180 +1,104 @@
-from rest_framework import viewsets
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.exceptions import PermissionDenied, NotFound
 
-from apps.accounts.permissions import IsAuthenticatedAndNotBlocked, user_has_role
-from .models import InventoryItem, InventoryMovement, RecipeComponent
+from apps.accounts.models import User
+from .models import InventoryItem
+from .permissions import IsCompanyStaff, IsCompanyAdmin
 from .serializers import (
-    InventoryItemSerializer,
-    InventoryMovementSerializer,
-    RecipeComponentSerializer,
+    InventoryListSerializer,
+    InventoryCreateSerializer,
+    InventoryUpdateAdminSerializer,
+    InventoryUpdateEmployeeSerializer,
 )
 
 
-class InventoryItemViewSet(viewsets.ModelViewSet):
-    serializer_class = InventoryItemSerializer
-    queryset = InventoryItem.objects.all()
-    permission_classes = [IsAuthenticatedAndNotBlocked]
+class InventoryListView(APIView):
+    """
+    INV_001: apskatīt noliktavas vienību sarakstu (UA/DA)
+    """
+    permission_classes = [IsAuthenticated, IsCompanyStaff]
 
-    def get_queryset(self):
-        user = self.request.user
-        qs = InventoryItem.objects.all()
+    def get(self, request):
+        user: User = request.user
+        if not user.company_id:
+            raise PermissionDenied("Lietotājam nav uzņēmuma.")
 
-        if user_has_role(user, ["system_admin"]):
-            return qs
+        qs = InventoryItem.objects.filter(company_id=user.company_id).order_by("name")
+        if qs.count() == 0:
+            return Response({"code": "P_006", "detail": "Noliktavā nav nevienas vienības."},
+                            status=status.HTTP_200_OK)
 
-        if user_has_role(user, ["company_admin", "employee"]):
-            return qs.filter(company=user.company)
-
-        return qs.none()
-
-    def perform_create(self, serializer):
-        user = self.request.user
-
-        if user_has_role(user, ["company_admin", "employee"]):
-            serializer.save(company=user.company)
-            return
-
-        if user_has_role(user, ["system_admin"]):
-            serializer.save()
-            return
-
-        raise PermissionDenied("You are not allowed to create inventory items.")
-
-    def perform_update(self, serializer):
-        user = self.request.user
-        instance = self.get_object()
-
-        if user_has_role(user, ["system_admin"]):
-            serializer.save()
-            return
-
-        if user_has_role(user, ["company_admin", "employee"]) and instance.company_id == user.company_id:
-            serializer.save(company=user.company)
-            return
-
-        raise PermissionDenied("You are not allowed to update this inventory item.")
-
-    def perform_destroy(self, instance):
-        user = self.request.user
-
-        if user_has_role(user, ["system_admin"]):
-            return super().perform_destroy(instance)
-
-        if user_has_role(user, ["company_admin", "employee"]) and instance.company_id == user.company_id:
-            return super().perform_destroy(instance)
-
-        raise PermissionDenied("You are not allowed to delete this inventory item.")
+        return Response(InventoryListSerializer(qs, many=True).data, status=status.HTTP_200_OK)
 
 
-class InventoryMovementViewSet(viewsets.ModelViewSet):
-    serializer_class = InventoryMovementSerializer
-    queryset = InventoryMovement.objects.select_related("inventory_item", "inventory_item__company")
-    permission_classes = [IsAuthenticatedAndNotBlocked]
+class InventoryCreateView(APIView):
+    """
+    INV_002: pievienot jaunu noliktavas vienību (UA)
+    """
+    permission_classes = [IsAuthenticated, IsCompanyAdmin]
 
-    def get_queryset(self):
-        user = self.request.user
-        qs = InventoryMovement.objects.select_related("inventory_item", "inventory_item__company")
+    def post(self, request):
+        user: User = request.user
+        if not user.company_id:
+            raise PermissionDenied("Administratoram nav piesaistīts uzņēmums.")
 
-        if user_has_role(user, ["system_admin"]):
-            return qs
+        s = InventoryCreateSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
 
-        if user_has_role(user, ["company_admin", "employee"]):
-            return qs.filter(inventory_item__company=user.company)
-
-        return qs.none()
-
-    def perform_create(self, serializer):
-        user = self.request.user
-        inventory_item = serializer.validated_data.get("inventory_item")
-
-        if not inventory_item:
-            raise PermissionDenied("Inventory item is required.")
-
-        if user_has_role(user, ["system_admin"]):
-            if inventory_item.quantity + serializer.validated_data.get("quantity_change", 0) < 0:
-                raise PermissionDenied("Insufficient stock for this movement.")
-            serializer.save(created_by=user)
-            return
-
-        if user_has_role(user, ["company_admin", "employee"]) and inventory_item.company_id == user.company_id:
-            if inventory_item.quantity + serializer.validated_data.get("quantity_change", 0) < 0:
-                raise PermissionDenied("Insufficient stock for this movement.")
-            serializer.save(created_by=user)
-            return
-
-        raise PermissionDenied("You are not allowed to create inventory movements for this item.")
+        InventoryItem.objects.create(company_id=user.company_id, **s.validated_data)
+        return Response({"code": "P_001", "detail": "Noliktavas vienība ir izveidota."},
+                        status=status.HTTP_201_CREATED)
 
 
-class RecipeComponentViewSet(viewsets.ModelViewSet):
-    serializer_class = RecipeComponentSerializer
-    queryset = RecipeComponent.objects.select_related(
-        "product",
-        "product__company",
-        "inventory_item",
-        "inventory_item__company",
-    )
-    permission_classes = [IsAuthenticatedAndNotBlocked]
+class InventoryUpdateView(APIView):
+    """
+    INV_003: rediģēt noliktavas vienību (UA/DA)
+    - UA: name + quantity + unit
+    - DA: tikai quantity
+    """
+    permission_classes = [IsAuthenticated, IsCompanyStaff]
 
-    def get_queryset(self):
-        user = self.request.user
-        qs = RecipeComponent.objects.select_related(
-            "product",
-            "product__company",
-            "inventory_item",
-            "inventory_item__company",
-        )
+    def put(self, request, item_id: int):
+        user: User = request.user
+        if not user.company_id:
+            raise PermissionDenied("Lietotājam nav uzņēmuma.")
 
-        if user_has_role(user, ["system_admin"]):
-            return qs
+        item = InventoryItem.objects.filter(id=item_id, company_id=user.company_id).first()
+        if not item:
+            raise NotFound("Noliktavas vienība nav atrasta.")
 
-        if user_has_role(user, ["company_admin", "employee"]):
-            return qs.filter(product__company=user.company)
+        # Nosaka atļautos laukus pēc lomas
+        if user.role == User.Role.COMPANY_ADMIN:
+            s = InventoryUpdateAdminSerializer(instance=item, data=request.data)
+        else:
+            # Darbiniekam atļauts mainīt tikai daudzumu
+            s = InventoryUpdateEmployeeSerializer(instance=item, data=request.data)
 
-        return qs.none()
+        s.is_valid(raise_exception=True)
+        s.save()
 
-    def perform_create(self, serializer):
-        user = self.request.user
-        product = serializer.validated_data.get("product")
-        inventory_item = serializer.validated_data.get("inventory_item")
+        return Response({"code": "P_002", "detail": "Noliktavas vienība ir atjaunināta."},
+                        status=status.HTTP_200_OK)
 
-        if not product or not inventory_item:
-            raise PermissionDenied("Product and inventory item are required.")
 
-        if user_has_role(user, ["system_admin"]):
-            serializer.save()
-            return
+class InventoryDeleteView(APIView):
+    """
+    INV_004: dzēst noliktavas vienību (UA)
+    """
+    permission_classes = [IsAuthenticated, IsCompanyAdmin]
 
-        if (
-            user_has_role(user, ["company_admin", "employee"])
-            and product.company_id == user.company_id
-            and inventory_item.company_id == user.company_id
-        ):
-            serializer.save()
-            return
+    def post(self, request, item_id: int):
+        user: User = request.user
+        if not user.company_id:
+            raise PermissionDenied("Administratoram nav piesaistīts uzņēmums.")
 
-        raise PermissionDenied("You are not allowed to manage this recipe component.")
+        item = InventoryItem.objects.filter(id=item_id, company_id=user.company_id).first()
+        if not item:
+            raise NotFound("Noliktavas vienība nav atrasta.")
 
-    def perform_update(self, serializer):
-        instance = self.get_object()
-        user = self.request.user
-
-        if user_has_role(user, ["system_admin"]):
-            serializer.save()
-            return
-
-        if user_has_role(user, ["company_admin", "employee"]) and instance.product.company_id == user.company_id:
-            serializer.save()
-            return
-
-        raise PermissionDenied("You are not allowed to update this recipe component.")
-
-    def perform_destroy(self, instance):
-        user = self.request.user
-
-        if user_has_role(user, ["system_admin"]):
-            return super().perform_destroy(instance)
-
-        if user_has_role(user, ["company_admin", "employee"]) and instance.product.company_id == user.company_id:
-            return super().perform_destroy(instance)
-
-        raise PermissionDenied("You are not allowed to delete this recipe component.")
+        item.delete()
+        return Response({"code": "P_004", "detail": "Noliktavas vienība ir dzēsta."},
+                        status=status.HTTP_200_OK)

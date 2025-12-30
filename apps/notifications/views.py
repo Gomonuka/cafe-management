@@ -1,66 +1,86 @@
-from rest_framework import viewsets
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.exceptions import NotFound, PermissionDenied
 
-from apps.accounts.permissions import (
-    IsAuthenticatedAndNotBlocked,
-    IsSystemAdmin,
-    ReadOnlyCompanyAdminOrSystemAdmin,
-    user_has_role,
-)
+from apps.accounts.models import User
 from .models import EmailTemplate, EmailLog
-from .serializers import EmailTemplateSerializer, EmailLogSerializer
+from .serializers import EmailTemplateSerializer, EmailLogListSerializer
+from .permissions import IsSystemAdmin, IsCompanyAdmin
 
 
-class EmailTemplateViewSet(viewsets.ModelViewSet):
+class AdminTemplateCreateView(APIView):
     """
-    System notifications: only system admins can manage templates.
+    NOTIF_001: pievienot e-pasta šablonu (SA)
     """
+    permission_classes = [IsAuthenticated, IsSystemAdmin]
 
-    queryset = EmailTemplate.objects.all()
-    serializer_class = EmailTemplateSerializer
-    permission_classes = [IsAuthenticatedAndNotBlocked, IsSystemAdmin]
-
-    def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
-
-    def perform_update(self, serializer):
-        serializer.save(created_by=self.request.user)
+    def post(self, request):
+        s = EmailTemplateSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        s.save()
+        return Response({"code": "P_001", "detail": "Šablons ir izveidots."}, status=status.HTTP_201_CREATED)
 
 
-class EmailLogViewSet(viewsets.ModelViewSet):
+class AdminTemplateListView(APIView):
     """
-    Email logs:
-      - system admins: full access
-      - company admins: read-only, scoped to their company recipients
+    NOTIF_002: apskatīt šablonus (SA)
     """
+    permission_classes = [IsAuthenticated, IsSystemAdmin]
 
-    queryset = EmailLog.objects.all()
-    serializer_class = EmailLogSerializer
-    permission_classes = [IsAuthenticatedAndNotBlocked, ReadOnlyCompanyAdminOrSystemAdmin]
+    def get(self, request):
+        qs = EmailTemplate.objects.all().order_by("code")
+        if qs.count() == 0:
+            return Response({"code": "P_006", "detail": "Nav neviena šablona."}, status=status.HTTP_200_OK)
+        return Response(EmailTemplateSerializer(qs, many=True).data, status=status.HTTP_200_OK)
 
-    def get_queryset(self):
-        user = self.request.user
-        qs = EmailLog.objects.select_related("receiver_user", "receiver_user__company")
 
-        if user_has_role(user, ["system_admin"]):
-            return qs
+class AdminTemplateUpdateView(APIView):
+    """
+    NOTIF_003: rediģēt šablonu (SA)
+    """
+    permission_classes = [IsAuthenticated, IsSystemAdmin]
 
-        if user_has_role(user, ["company_admin"]):
-            return qs.filter(receiver_user__company=user.company)
+    def put(self, request, template_id: int):
+        tpl = EmailTemplate.objects.filter(id=template_id).first()
+        if not tpl:
+            raise NotFound("Šablons nav atrasts.")
 
-        return qs.none()
+        s = EmailTemplateSerializer(instance=tpl, data=request.data)
+        s.is_valid(raise_exception=True)
+        s.save()
+        return Response({"code": "P_002", "detail": "Šablons ir atjaunināts."}, status=status.HTTP_200_OK)
 
-    def perform_create(self, serializer):
-        if not user_has_role(self.request.user, ["system_admin"]):
-            raise PermissionDenied("Only system admins can create email logs.")
-        serializer.save()
 
-    def perform_update(self, serializer):
-        if not user_has_role(self.request.user, ["system_admin"]):
-            raise PermissionDenied("Only system admins can update email logs.")
-        serializer.save()
+class AdminTemplateDeleteView(APIView):
+    """
+    NOTIF_004: dzēst šablonu (SA)
+    """
+    permission_classes = [IsAuthenticated, IsSystemAdmin]
 
-    def perform_destroy(self, instance):
-        if not user_has_role(self.request.user, ["system_admin"]):
-            raise PermissionDenied("Only system admins can delete email logs.")
-        return super().perform_destroy(instance)
+    def post(self, request, template_id: int):
+        tpl = EmailTemplate.objects.filter(id=template_id).first()
+        if not tpl:
+            raise NotFound("Šablons nav atrasts.")
+
+        tpl.delete()
+        return Response({"code": "P_004", "detail": "Šablons ir dzēsts."}, status=status.HTTP_200_OK)
+
+
+class CompanyEmailLogListView(APIView):
+    """
+    NOTIF_005: apskatīt nosūtīto e-pastu žurnālu (UA)
+    """
+    permission_classes = [IsAuthenticated, IsCompanyAdmin]
+
+    def get(self, request):
+        user: User = request.user
+        if not user.company_id:
+            raise PermissionDenied("Administratoram nav piesaistīts uzņēmums.")
+
+        qs = EmailLog.objects.filter(company_id=user.company_id)
+        if qs.count() == 0:
+            return Response({"code": "P_006", "detail": "Žurnāls ir tukšs."}, status=status.HTTP_200_OK)
+
+        return Response(EmailLogListSerializer(qs, many=True).data, status=status.HTTP_200_OK)

@@ -1,146 +1,196 @@
-from rest_framework import viewsets
+from rest_framework.views import APIView
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.exceptions import PermissionDenied, NotFound
+
+from apps.accounts.models import User
+from apps.companies.models import Company
 from .models import MenuCategory, Product
-from .serializers import MenuCategorySerializer, ProductSerializer
-from apps.accounts.permissions import (
-    IsAuthenticatedAndNotBlocked,
-    user_has_role,
+from .serializers import (
+    CategorySerializer,
+    CategoryCreateUpdateSerializer,
+    ProductCreateUpdateSerializer,
+    MenuPublicSerializer,
+    MenuAdminSerializer,
 )
+from .permissions import IsCompanyAdmin
+from .utils import parse_recipe
 
 
-class MenuCategoryViewSet(viewsets.ModelViewSet):
+def company_public_available(company_id: int) -> bool:
+    # Klientam uzņēmumam jābūt aktīvam, nebloķētam un ne soft-deleted
+    return Company.objects.filter(id=company_id, deleted_at__isnull=True, is_active=True, is_blocked=False).exists()
+
+
+class MenuView(APIView):
     """
-    Категории меню:
-    - Klients: может видеть категории активных компаний
-    - company_admin / employee: видят и управляют категориями своего uzņēmuma
-    - system_admin: всё
+    MENU_001: apskatīt uzņēmuma ēdienkarti
+    - Klients: tikai aktīvās kategorijas + pieejamie produkti
+    - UA: visas kategorijas + visi produkti savam uzņēmumam
     """
+    permission_classes = [AllowAny]
 
-    serializer_class = MenuCategorySerializer
-    permission_classes = [IsAuthenticatedAndNotBlocked]
+    def get(self, request, company_id: int):
+        company = Company.objects.filter(id=company_id, deleted_at__isnull=True).first()
+        if not company:
+            raise NotFound("Uzņēmums nav atrasts.")
 
-    def get_queryset(self):
-        user = self.request.user
-        qs = MenuCategory.objects.all()
+        user = request.user
 
-        if user_has_role(user, ["system_admin"]):
-            return qs
+        # Klients/viesis
+        if not (user.is_authenticated and user.role == User.Role.COMPANY_ADMIN):
+            # Pārbauda, vai uzņēmums ir publiski pieejams
+            if not company_public_available(company_id):
+                raise PermissionDenied("Uzņēmuma ēdienkarte nav pieejama.")
 
-        if user_has_role(user, ["company_admin", "employee"]):
-            return qs.filter(company=user.company)
+            categories = MenuCategory.objects.filter(company=company, is_active=True).order_by("name")
+            data = []
+            for cat in categories:
+                products = Product.objects.filter(company=company, category=cat, is_available=True).order_by("name")
+                data.append(
+                    {
+                        "id": cat.id,
+                        "name": cat.name,
+                        "description": cat.description,
+                        "products": [
+                            {"id": p.id, "name": p.name, "price": str(p.price), "is_available": p.is_available}
+                            for p in products
+                        ],
+                    }
+                )
+            return Response(MenuPublicSerializer({"categories": data}).data, status=status.HTTP_200_OK)
 
-        if user_has_role(user, ["client"]):
-            return qs.filter(company__is_active=True)
+        # UA
+        if user.company_id != company_id:
+            raise PermissionDenied("Piekļuve ir atļauta tikai savam uzņēmumam.")
 
-        return qs.none()
+        categories = MenuCategory.objects.filter(company=company).order_by("name")
+        products = Product.objects.filter(company=company).order_by("name")
 
-    def perform_create(self, serializer):
-        user = self.request.user
-
-        if user_has_role(user, ["company_admin"]):
-            serializer.save(company=user.company)
-        elif user_has_role(user, ["system_admin"]):
-            serializer.save()
-        else:
-            from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("Only company or system admins can create categories.")
-
-    def perform_update(self, serializer):
-        from rest_framework.exceptions import PermissionDenied
-
-        user = self.request.user
-        instance = self.get_object()
-
-        if user_has_role(user, ["system_admin"]):
-            serializer.save()
-            return
-
-        if user_has_role(user, ["company_admin"]) and instance.company_id == user.company_id:
-            serializer.save()
-            return
-
-        raise PermissionDenied("You are not allowed to update this category.")
-
-    def perform_destroy(self, instance):
-        from rest_framework.exceptions import PermissionDenied
-
-        user = self.request.user
-
-        if user_has_role(user, ["system_admin"]):
-            return super().perform_destroy(instance)
-
-        if user_has_role(user, ["company_admin"]) and instance.company_id == user.company_id:
-            return super().perform_destroy(instance)
-
-        raise PermissionDenied("You are not allowed to delete this category.")
+        admin_payload = {
+            "categories": [{"id": c.id, "name": c.name} for c in categories],
+            "products": [{"id": p.id, "name": p.name} for p in products],
+        }
+        return Response(MenuAdminSerializer(admin_payload).data, status=status.HTTP_200_OK)
 
 
-class ProductViewSet(viewsets.ModelViewSet):
+class CategoryCreateView(APIView):
     """
-    Produkti:
-    - Klients: может смотреть меню (фильтрация по company, категории, цене)
-    - Employee/company_admin: CRUD только по продуктам своей компании
-    - system_admin: полный доступ
+    MENU_005: pievienot kategoriju
     """
+    permission_classes = [IsAuthenticated, IsCompanyAdmin]
 
-    serializer_class = ProductSerializer
-    permission_classes = [IsAuthenticatedAndNotBlocked]
+    def post(self, request):
+        user: User = request.user
+        if not user.company_id:
+            raise PermissionDenied("Administratoram nav piesaistīts uzņēmums.")
 
-    def get_queryset(self):
-        user = self.request.user
-        qs = Product.objects.all()
+        s = CategoryCreateUpdateSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
 
-        company_id = self.request.query_params.get("company")
-        if company_id:
-            qs = qs.filter(company_id=company_id)
+        category = MenuCategory.objects.create(company_id=user.company_id, **s.validated_data)
+        return Response({"code": "P_001", "detail": "Kategorija ir izveidota.", "id": category.id},
+                        status=status.HTTP_201_CREATED)
 
-        if user_has_role(user, ["system_admin"]):
-            return qs
 
-        if user_has_role(user, ["company_admin", "employee"]):
-            return qs.filter(company=user.company)
+class CategoryUpdateView(APIView):
+    """
+    MENU_006: rediģēt kategoriju
+    """
+    permission_classes = [IsAuthenticated, IsCompanyAdmin]
 
-        if user_has_role(user, ["client"]):
-            return qs.filter(company__is_active=True, is_available=True)
+    def put(self, request, category_id: int):
+        user: User = request.user
+        category = MenuCategory.objects.filter(id=category_id, company_id=user.company_id).first()
+        if not category:
+            raise NotFound("Kategorija nav atrasta.")
 
-        return qs.none()
+        s = CategoryCreateUpdateSerializer(instance=category, data=request.data)
+        s.is_valid(raise_exception=True)
+        s.save()
 
-    def perform_create(self, serializer):
-        from rest_framework.exceptions import PermissionDenied
+        return Response({"code": "P_002", "detail": "Kategorija ir atjaunināta."},
+                        status=status.HTTP_200_OK)
 
-        user = self.request.user
 
-        if user_has_role(user, ["company_admin"]):
-            serializer.save(company=user.company)
-        elif user_has_role(user, ["system_admin"]):
-            serializer.save()
-        else:
-            raise PermissionDenied("Only company or system admins can create products.")
+class CategoryDeleteView(APIView):
+    """
+    MENU_007: dzēst kategoriju (hard delete)
+    """
+    permission_classes = [IsAuthenticated, IsCompanyAdmin]
 
-    def perform_update(self, serializer):
-        from rest_framework.exceptions import PermissionDenied
+    def post(self, request, category_id: int):
+        user: User = request.user
+        category = MenuCategory.objects.filter(id=category_id, company_id=user.company_id).first()
+        if not category:
+            raise NotFound("Kategorija nav atrasta.")
 
-        user = self.request.user
-        instance = self.get_object()
+        category.delete()
+        return Response({"code": "P_004", "detail": "Kategorija ir dzēsta."},
+                        status=status.HTTP_200_OK)
 
-        if user_has_role(user, ["system_admin"]):
-            serializer.save()
-            return
 
-        if user_has_role(user, ["company_admin"]) and instance.company_id == user.company_id:
-            serializer.save()
-            return
+class ProductCreateView(APIView):
+    """
+    MENU_002: pievienot produktu
+    - recepte obligāta, vismaz 1 sastāvdaļa
+    - foto obligāts
+    """
+    permission_classes = [IsAuthenticated, IsCompanyAdmin]
 
-        raise PermissionDenied("You are not allowed to update this product.")
+    def post(self, request):
+        user: User = request.user
+        if not user.company_id:
+            raise PermissionDenied("Administratoram nav piesaistīts uzņēmums.")
 
-    def perform_destroy(self, instance):
-        from rest_framework.exceptions import PermissionDenied
+        data = request.data.copy()
+        # Parsē recepte no FormData (ja nepieciešams)
+        data["recipe"] = parse_recipe(data)
 
-        user = self.request.user
+        s = ProductCreateUpdateSerializer(data=data, context={"company": user.company})
+        s.is_valid(raise_exception=True)
+        product = s.save()
 
-        if user_has_role(user, ["system_admin"]):
-            return super().perform_destroy(instance)
+        return Response({"code": "P_001", "detail": "Produkts ir izveidots.", "id": product.id},
+                        status=status.HTTP_201_CREATED)
 
-        if user_has_role(user, ["company_admin"]) and instance.company_id == user.company_id:
-            return super().perform_destroy(instance)
 
-        raise PermissionDenied("You are not allowed to delete this product.")
+class ProductUpdateView(APIView):
+    """
+    MENU_003: rediģēt produktu
+    """
+    permission_classes = [IsAuthenticated, IsCompanyAdmin]
+
+    def put(self, request, product_id: int):
+        user: User = request.user
+        product = Product.objects.filter(id=product_id, company_id=user.company_id).first()
+        if not product:
+            raise NotFound("Produkts nav atrasts.")
+
+        data = request.data.copy()
+        data["recipe"] = parse_recipe(data)
+
+        s = ProductCreateUpdateSerializer(instance=product, data=data, context={"company": user.company})
+        s.is_valid(raise_exception=True)
+        s.save()
+
+        return Response({"code": "P_002", "detail": "Produkts ir atjaunināts."},
+                        status=status.HTTP_200_OK)
+
+
+class ProductDeleteView(APIView):
+    """
+    MENU_004: dzēst produktu (hard delete)
+    """
+    permission_classes = [IsAuthenticated, IsCompanyAdmin]
+
+    def post(self, request, product_id: int):
+        user: User = request.user
+        product = Product.objects.filter(id=product_id, company_id=user.company_id).first()
+        if not product:
+            raise NotFound("Produkts nav atrasts.")
+
+        product.delete()
+        return Response({"code": "P_004", "detail": "Produkts ir dzēsts."},
+                        status=status.HTTP_200_OK)
