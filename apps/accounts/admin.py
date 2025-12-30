@@ -15,7 +15,6 @@ class UserAdmin(BaseUserAdmin):
                     "theme",
                     "is_blocked",
                     "role",
-                    "language",
                     "company",
                 )
             },
@@ -31,5 +30,5 @@ class UserAdmin(BaseUserAdmin):
         "is_staff",
         "is_superuser",
     )
-    list_filter = ("role", "company", "is_blocked", "language")
+    list_filter = ("role", "company", "is_blocked")
     search_fields = ("username", "email")

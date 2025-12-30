@@ -88,3 +88,32 @@ export async function apiRequest(
 
   return res;
 }
+
+const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+
+async function raw<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const access = localStorage.getItem("access");
+
+  const headers = new Headers(init.headers);
+  if (!headers.has("Content-Type") && init.body) headers.set("Content-Type", "application/json");
+  if (access) headers.set("Authorization", `Bearer ${access}`);
+
+  const res = await fetch(`${BASE}${path}`, { ...init, headers });
+
+  const text = await res.text();
+  const data = text ? JSON.parse(text) : null;
+
+  if (!res.ok) {
+    throw data ?? { detail: "Request failed" };
+  }
+  return data as T;
+}
+
+export const api = {
+  get: <T>(path: string) => raw<T>(path),
+  post: <T>(path: string, body?: unknown) =>
+    raw<T>(path, { method: "POST", body: body ? JSON.stringify(body) : undefined }),
+  patch: <T>(path: string, body?: unknown) =>
+    raw<T>(path, { method: "PATCH", body: body ? JSON.stringify(body) : undefined }),
+  del: <T>(path: string) => raw<T>(path, { method: "DELETE" }),
+};

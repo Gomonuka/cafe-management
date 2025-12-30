@@ -1,8 +1,8 @@
 from django.db import models
 from django.utils import timezone
+from apps.common.models import SoftDeleteModel
 
-
-class Company(models.Model):
+class Company(SoftDeleteModel, models.Model):
     """
     Entitātes Uzņēmums (Company) atribūti:
     1) Nosaukums - name

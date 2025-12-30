@@ -12,8 +12,7 @@ class User(AbstractUser):
     4) Konta_foto - avatar
     5) Vai_ir_bloķēts - is_blocked
     6) Loma - role
-    7) Valoda - language
-    8) Uzņēmuma_identifikators - company (FK to Company)
+    7) Uzņēmuma_identifikators - company (FK to Company)
     """
     class Role(models.TextChoices):
         CLIENT = "client", "Client"
@@ -21,14 +20,9 @@ class User(AbstractUser):
         COMPANY_ADMIN = "company_admin", "Company admin"
         SYSTEM_ADMIN = "system_admin", "System admin"
 
-    class Language(models.TextChoices):
-        LV = "lv", "Latviešu"
-        EN = "en", "English"
-
     avatar = models.ImageField(upload_to="avatars/", null=True, blank=True)  # Konta foto
     is_blocked = models.BooleanField(default=False)  # Vai ir bloķēts
     role = models.CharField(max_length=20, choices=Role.choices)  # Loma
-    language = models.CharField(max_length=2, choices=Language.choices, default=Language.LV)  # Valoda
 
     # Uzņēmuma identifikators – FK to Company
     company = models.ForeignKey(

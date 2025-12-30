@@ -1,13 +1,14 @@
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Outlet } from "react-router-dom";
 import Sidebar from "../components/sidebar/Sidebar";
 import type { Role } from "../components/sidebar/sidebar.config";
 import "../styles/layout.css";
 
-export default function AppLayout({ children }: { children: ReactNode }) {
+export default function AppLayout({ children }: { children?: ReactNode }) {
   const nav = useNavigate();
   const [open, setOpen] = useState(false);
+
   const user = useMemo(
     () => ({
       role: (localStorage.getItem("role") as Role) || "client",
@@ -19,6 +20,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const logout = () => {
     localStorage.removeItem("access");
     localStorage.removeItem("refresh");
+    localStorage.removeItem("role");
+    localStorage.removeItem("fullName");
     nav("/", { replace: true });
   };
 
@@ -43,12 +46,18 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
       <main className="app-main">
         <div className="topbar">
-          <button className="burger" type="button" onClick={() => setOpen(true)} aria-label="Menu">
+          <button
+            className="burger"
+            type="button"
+            onClick={() => setOpen(true)}
+            aria-label="Menu"
+          >
             ☰
           </button>
         </div>
 
-        <div className="page">{children}</div>
+        {/* если AppLayout используется как layout-route -> будет Outlet */}
+        <div className="page">{children ?? <Outlet />}</div>
       </main>
     </div>
   );

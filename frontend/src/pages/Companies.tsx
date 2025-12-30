@@ -1,35 +1,36 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { FiMapPin, FiClock, FiSearch, FiFilter, FiChevronDown, FiCoffee } from "react-icons/fi";
 import "../styles/companies.css";
 
 type Company = {
-  id: number;
-  name: string;
-  address: string;
-  city: string;
-  workingHoursText: string;
+    id: number;
+    name: string;
+    address: string;
+    city: string;
+    workingHoursText: string;
 };
 
 const mockCompanies: Company[] = [
-  { id: 1, name: "Nosaukums", address: "Adrese", city: "Rīga", workingHoursText: "10:00–22:00" },
-  { id: 2, name: "Nosaukums", address: "Adrese", city: "Rīga", workingHoursText: "09:00–21:00" },
-  { id: 3, name: "Nosaukums", address: "Adrese", city: "Liepāja", workingHoursText: "11:00–23:00" },
-  { id: 4, name: "Nosaukums", address: "Adrese", city: "Daugavpils", workingHoursText: "10:00–20:00" },
-  { id: 5, name: "Nosaukums", address: "Adrese", city: "Rīga", workingHoursText: "12:00–00:00" },
-  { id: 6, name: "Nosaukums", address: "Adrese", city: "Jelgava", workingHoursText: "10:00–19:00" },
+    { id: 1, name: "Nosaukums", address: "Adrese", city: "Rīga", workingHoursText: "10:00–22:00" },
+    { id: 2, name: "Nosaukums", address: "Adrese", city: "Rīga", workingHoursText: "09:00–21:00" },
+    { id: 3, name: "Nosaukums", address: "Adrese", city: "Liepāja", workingHoursText: "11:00–23:00" },
+    { id: 4, name: "Nosaukums", address: "Adrese", city: "Daugavpils", workingHoursText: "10:00–20:00" },
+    { id: 5, name: "Nosaukums", address: "Adrese", city: "Rīga", workingHoursText: "12:00–00:00" },
+    { id: 6, name: "Nosaukums", address: "Adrese", city: "Jelgava", workingHoursText: "10:00–19:00" },
 ];
 
 type SortKey = "name_asc" | "name_desc";
 
 export default function Companies() {
-  const [city, setCity] = useState("");
-  const [sort, setSort] = useState<SortKey>("name_asc");
-  const [q, setQ] = useState("");
-
-  const cities = useMemo(() => {
-    const set = new Set(mockCompanies.map((c) => c.city));
-    return ["", ...Array.from(set)];
-  }, []);
+    const [city, setCity] = useState("");
+    const [sort, setSort] = useState<SortKey>("name_asc");
+    const [q, setQ] = useState("");
+    const nav = useNavigate();
+    const cities = useMemo(() => {
+        const set = new Set(mockCompanies.map((c) => c.city));
+        return ["", ...Array.from(set)];
+    }, []);
 
   const list = useMemo(() => {
     let items = [...mockCompanies];
@@ -89,7 +90,8 @@ export default function Companies() {
 
       <div className="companies-grid">
         {list.map((c) => (
-          <div key={c.id} className="company-card card">
+            <div className="company-card card" onClick={() => nav(`/app/companies/${c.id}`)} role="button" tabIndex={0}>
+
             <div className="company-img">
               <div className="company-img-ic"><FiCoffee /></div>
             </div>
@@ -108,7 +110,7 @@ export default function Companies() {
             </div>
 
             <button className="btn btn-primary btn-full company-btn" type="button">
-              Skatīt ēdienkarti
+              Skatīt informāciju
             </button>
           </div>
         ))}
