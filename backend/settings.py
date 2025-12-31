@@ -138,9 +138,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = "accounts.User"
 
 CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOWED_ORIGINS = [
-    os.getenv("FRONTEND_URL", "http://localhost:5173"),
-]
+_frontend_origins = os.getenv("FRONTEND_URL", "http://localhost:5173")
+CORS_ALLOWED_ORIGINS = [o.strip() for o in _frontend_origins.split(",") if o.strip()]
+CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (

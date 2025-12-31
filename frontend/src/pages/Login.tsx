@@ -10,7 +10,7 @@ import { login } from "../auth/auth.api";
 
 export default function Login() {
   const nav = useNavigate();
-  const [emailOrUsername, setEmailOrUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -19,12 +19,12 @@ export default function Login() {
     e.preventDefault();
     setError(null);
 
-    const res = await login({ username: emailOrUsername, password });
+    const res = await login({ email, password });
     if (!res.ok) {
-      setError(res.data?.detail || "Login failed");
+      setError(res.data?.detail || res.data?.code || "Login failed");
       return;
     }
-    nav("/app");
+    nav("/app/companies");
   };
 
   return (
@@ -43,9 +43,9 @@ export default function Login() {
         <AuthField
           leftIcon={<FiMail />}
           placeholder="E-pasts"
-          value={emailOrUsername}
-          onChange={setEmailOrUsername}
-          autoComplete="username"
+          value={email}
+          onChange={setEmail}
+          autoComplete="email"
         />
 
         <AuthField
@@ -67,7 +67,7 @@ export default function Login() {
       <ErrorBox text={error} />
 
       <a className="link" href="/forgot">
-        Aizmirsat paroli?
+        Aizmirsāt paroli?
       </a>
     </AuthCard>
   );

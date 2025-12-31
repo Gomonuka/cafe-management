@@ -1,54 +1,46 @@
-import { apiRequest, tokenStorage } from "../api/client";
+import { request } from "../api/client";
 
 export async function register(payload: {
   username: string;
   email: string;
   password: string;
   role: "client" | "company_admin";
+  auto_login?: boolean;
 }) {
-  return apiRequest("/api/auth/register/", {
+  return request({
+    url: "/accounts/auth/register/",
     method: "POST",
-    body: payload,
-    auth: false,
+    data: payload,
   });
 }
 
-export async function login(payload: { username: string; password: string }) {
-  const res = await apiRequest("/api/auth/login/", {
+export async function login(payload: { email: string; password: string }) {
+  return request({
+    url: "/accounts/auth/login/",
     method: "POST",
-    body: payload,
-    auth: false,
+    data: payload,
   });
-
-  if (res.ok && res.data?.access && res.data?.refresh) {
-    tokenStorage.setTokens(res.data);
-  }
-
-  return res;
 }
 
 export async function logout() {
-  const refresh = tokenStorage.getRefresh();
-  tokenStorage.clear();
-
-  if (refresh) {
-    await apiRequest("/api/auth/logout/", {
-      method: "POST",
-      body: { refresh },
-      auth: false,
-    });
-  }
+  return request({
+    url: "/accounts/auth/logout/",
+    method: "POST",
+  });
 }
 
 export async function getMe() {
-  return apiRequest("/api/me/");
+  return request({
+    url: "/accounts/me/",
+    method: "GET",
+  });
 }
 
-export async function requestPasswordReset(email: string) {
-  return apiRequest("/api/auth/password-reset/", {
+export async function requestPasswordReset(email: string, frontend_url?: string) {
+  return request({
+    url: "/accounts/auth/password-reset/request/",
     method: "POST",
-    body: { email },
-    auth: false,
+    data: { email, frontend_url },
   });
 }
 
@@ -56,10 +48,11 @@ export async function confirmPasswordReset(payload: {
   uid: string;
   token: string;
   new_password: string;
+  repeat_password: string;
 }) {
-  return apiRequest("/api/auth/password-reset/confirm/", {
+  return request({
+    url: "/accounts/auth/password-reset/confirm/",
     method: "POST",
-    body: payload,
-    auth: false,
+    data: payload,
   });
 }

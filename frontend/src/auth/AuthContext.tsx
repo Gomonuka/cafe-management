@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { User } from "../types";
 import { getMe, logout as apiLogout } from "./auth.api";
-import { tokenStorage } from "../api/client";
 
 type AuthState = {
   user: User | null;
@@ -18,22 +17,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   const refreshMe = async () => {
-    const access = tokenStorage.getAccess();
-    const refresh = tokenStorage.getRefresh();
-
-    // если токенов нет — даже не дёргаем backend
-    if (!access && !refresh) {
-      setUser(null);
-      setIsLoading(false);
-      return;
-    }
-
     setIsLoading(true);
     const res = await getMe();
-
     if (res.ok) setUser(res.data as User);
     else setUser(null);
-
     setIsLoading(false);
   };
 

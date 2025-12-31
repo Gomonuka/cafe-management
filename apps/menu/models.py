@@ -1,5 +1,6 @@
 from django.db import models
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
 
@@ -24,7 +25,7 @@ class MenuCategory(models.Model):
     description = models.CharField(max_length=1000, blank=True)
     is_active = models.BooleanField(default=True)  # Klientam rādam tikai aktīvās kategorijas
 
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
 
     class Meta:
         unique_together = ("company", "name")
@@ -48,7 +49,7 @@ class Product(models.Model):
     is_available = models.BooleanField(default=True)  # pieejams / nav pieejams
     price = models.DecimalField(max_digits=10, decimal_places=2)  # cena par vienību
 
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
 
     class Meta:
         unique_together = ("company", "name")

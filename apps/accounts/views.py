@@ -1,12 +1,13 @@
 from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 
 from apps.accounts.models import User
 from .serializers import RegisterSerializer, ProfileReadSerializer, ProfileUpdateSerializer
+from .auth_views import set_jwt_cookies
 
 
 class RegisterView(generics.CreateAPIView):
@@ -19,18 +20,18 @@ class RegisterView(generics.CreateAPIView):
         s.is_valid(raise_exception=True)
         user = s.save()
 
-        # Ja izvēlēts “ienākt uzreiz” – atgriež JWT tokenus (un FE var novirzīt uz profilu)
+        # Ja izvēlēts ienākt uzreiz — uzliekam JWT cookies
         if getattr(user, "_auto_login", False):
             refresh = RefreshToken.for_user(user)
-            return Response(
+            resp = Response(
                 {
-                    "code": "P_001",  # “konts izveidots” (te tikai kā piemērs)
+                    "code": "P_001",
                     "detail": "Konts ir veiksmīgi izveidots.",
-                    "access": str(refresh.access_token),
-                    "refresh": str(refresh),
                 },
                 status=status.HTTP_201_CREATED,
             )
+            set_jwt_cookies(resp, refresh)
+            return resp
 
         return Response(
             {"code": "P_001", "detail": "Konts ir veiksmīgi izveidots."},
@@ -61,17 +62,15 @@ class DeleteMeView(APIView):
     def post(self, request):
         request.user.soft_delete()
 
-        # JWT gadījumā sesija ir FE pusē, bet mēs varam nobloķēt refresh tokenu, ja FE to atsūta
-        # Šeit pietiek ar profila deaktivizēšanu; StrictJWTAuthentication bloķēs piekļuvi.
+        # JWT gadījumā sesija ir FE pusē; pietiek ar profila deaktivizēšanu.
         return Response({"code": "P_004", "detail": "Profils ir deaktivizēts."}, status=status.HTTP_200_OK)
 
 
 class LogoutView(APIView):
-    # USER_003: atslēgties (refresh token blacklisting)
+    # Deprecated: header/body-based logout; paliek savietojamībai
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        # FE atsūta refresh tokenu, lai to iekļautu blacklist
         refresh = request.data.get("refresh")
         if not refresh:
             return Response({"detail": "Refresh token is required."}, status=status.HTTP_400_BAD_REQUEST)

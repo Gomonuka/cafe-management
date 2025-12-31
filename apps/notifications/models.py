@@ -1,5 +1,5 @@
 from django.db import models
-
+from django.utils import timezone
 
 class EmailTemplate(models.Model):
     # Sistēmas e-pasta šablons
@@ -8,7 +8,7 @@ class EmailTemplate(models.Model):
     content = models.TextField(max_length=5000, blank=True, default="") # HTML vai teksts ar {{mainīgajiem}}
     is_active = models.BooleanField(default=True)
 
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
 
     class Meta:
         ordering = ["code"]

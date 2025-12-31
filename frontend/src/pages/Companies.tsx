@@ -1,120 +1,138 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FiMapPin, FiClock, FiSearch, FiFilter, FiChevronDown, FiCoffee } from "react-icons/fi";
-import "../styles/companies.css";
+import { FiMapPin, FiSearch } from "react-icons/fi";
+import Card from "../components/ui/Card";
+import Button from "../components/ui/Button";
+import Input from "../components/ui/Input";
+import { listCities, listCompanies, filterByCity, type PublicCompany } from "../api/companies";
 
-type Company = {
-    id: number;
-    name: string;
-    address: string;
-    city: string;
-    workingHoursText: string;
-};
+const weekdays = ["Pr-Pk", "Se", "Sv", ""]; // not used in detail list, but placeholders
 
-const mockCompanies: Company[] = [
-    { id: 1, name: "Nosaukums", address: "Adrese", city: "Rīga", workingHoursText: "10:00–22:00" },
-    { id: 2, name: "Nosaukums", address: "Adrese", city: "Rīga", workingHoursText: "09:00–21:00" },
-    { id: 3, name: "Nosaukums", address: "Adrese", city: "Liepāja", workingHoursText: "11:00–23:00" },
-    { id: 4, name: "Nosaukums", address: "Adrese", city: "Daugavpils", workingHoursText: "10:00–20:00" },
-    { id: 5, name: "Nosaukums", address: "Adrese", city: "Rīga", workingHoursText: "12:00–00:00" },
-    { id: 6, name: "Nosaukums", address: "Adrese", city: "Jelgava", workingHoursText: "10:00–19:00" },
-];
-
-type SortKey = "name_asc" | "name_desc";
+function WorkingHours({ company }: { company: PublicCompany }) {
+  if (!company.working_hours?.length) return null;
+  return (
+    <ul style={{ listStyle: "none", padding: 0, margin: "6px 0 0 0", color: "#0f4e9c", fontSize: 13 }}>
+      {company.working_hours.map((wh) => (
+        <li key={wh.weekday}>
+          {wh.from_time} - {wh.to_time}
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 export default function Companies() {
-    const [city, setCity] = useState("");
-    const [sort, setSort] = useState<SortKey>("name_asc");
-    const [q, setQ] = useState("");
-    const nav = useNavigate();
-    const cities = useMemo(() => {
-        const set = new Set(mockCompanies.map((c) => c.city));
-        return ["", ...Array.from(set)];
-    }, []);
+  const nav = useNavigate();
+  const [companies, setCompanies] = useState<PublicCompany[]>([]);
+  const [cities, setCities] = useState<string[]>([]);
+  const [city, setCity] = useState<string>("");
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<"asc" | "desc">("asc");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const list = useMemo(() => {
-    let items = [...mockCompanies];
+  const loadCities = async () => {
+    const res = await listCities();
+    if (res.ok) setCities(res.data.cities);
+  };
 
-    if (city) items = items.filter((c) => c.city === city);
-    if (q.trim()) items = items.filter((c) => c.name.toLowerCase().includes(q.toLowerCase()));
+  const loadCompanies = async () => {
+    setLoading(true);
+    setError(null);
+    const res =
+      city && city !== "all"
+        ? await filterByCity(city)
+        : await listCompanies({ search: search || undefined, sort });
+    if (res.ok) setCompanies(res.data);
+    else setError(res.data?.detail || "Neizdevās ielādēt uzņēmumus.");
+    setLoading(false);
+  };
 
-    items.sort((a, b) => {
-      if (sort === "name_asc") return a.name.localeCompare(b.name);
-      return b.name.localeCompare(a.name);
-    });
+  useEffect(() => {
+    void loadCities();
+  }, []);
 
-    return items;
-  }, [city, sort, q]);
+  useEffect(() => {
+    void loadCompanies();
+  }, [city, sort]);
+
+  const filtered = useMemo(() => companies, [companies]);
 
   return (
-    <div className="companies">
-      <div className="companies-head card">
-        <div className="companies-head-left">
-          <div className="companies-head-title">Uzņēmumi</div>
-          <div className="companies-head-sub">Pieejamo kafejnīcu un restorānu saraksts</div>
-        </div>
+    <div className="profile-wrap" style={{ alignItems: "stretch" }}>
+      <div className="profile-title" style={{ textAlign: "left" }}>
+        Uzņēmumi
       </div>
 
-      <div className="companies-filters">
-        <div className="filter-pill">
-          <span className="pill-ic"><FiFilter /></span>
-          <select className="pill-select" value={city} onChange={(e) => setCity(e.target.value)}>
-            {cities.map((c) => (
-              <option key={c || "all"} value={c}>
-                {c ? c : "Pilsēta"}
-              </option>
-            ))}
-          </select>
-          <span className="pill-dd"><FiChevronDown /></span>
-        </div>
-
-        <div className="filter-pill">
-          <span className="pill-ic"><FiCoffee /></span>
-          <select className="pill-select" value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
-            <option value="name_asc">Pēc nosaukuma (A-Z)</option>
-            <option value="name_desc">Pēc nosaukuma (Z-A)</option>
-          </select>
-          <span className="pill-dd"><FiChevronDown /></span>
-        </div>
-
-        <div className="search-pill">
-          <span className="pill-ic"><FiSearch /></span>
-          <input
-            className="pill-input"
-            placeholder="Ievadiet nosaukumu"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-        </div>
-      </div>
-
-      <div className="companies-grid">
-        {list.map((c) => (
-            <div className="company-card card" onClick={() => nav(`/app/companies/${c.id}`)} role="button" tabIndex={0}>
-
-            <div className="company-img">
-              <div className="company-img-ic"><FiCoffee /></div>
-            </div>
-
-            <div className="company-name">{c.name}</div>
-
-            <div className="company-meta">
-              <div className="meta-row">
-                <span className="meta-ic"><FiMapPin /></span>
-                <span>{c.address}</span>
-              </div>
-              <div className="meta-row">
-                <span className="meta-ic"><FiClock /></span>
-                <span>Darba laiks</span>
-              </div>
-            </div>
-
-            <button className="btn btn-primary btn-full company-btn" type="button">
-              Skatīt informāciju
-            </button>
+      <Card>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+          <div style={{ minWidth: 180 }}>
+            <label className="sb-role" style={{ color: "#1e73d8", fontWeight: 700 }}>
+              Pilsēta
+            </label>
+            <select
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              style={{ width: "100%", padding: "10px", borderRadius: 10, border: "1px solid #cfd8e3" }}
+            >
+              <option value="">Visas</option>
+              {cities.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
           </div>
-        ))}
-      </div>
+
+          <div style={{ minWidth: 180 }}>
+            <label className="sb-role" style={{ color: "#1e73d8", fontWeight: 700 }}>
+              Pēc nosaukuma
+            </label>
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value as "asc" | "desc")}
+              style={{ width: "100%", padding: "10px", borderRadius: 10, border: "1px solid #cfd8e3" }}
+            >
+              <option value="asc">A–Ž</option>
+              <option value="desc">Ž–A</option>
+            </select>
+          </div>
+
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <Input
+              label="Meklēt"
+              leftIcon={<FiSearch />}
+              value={search}
+              onChange={setSearch}
+              onBlur={() => loadCompanies()}
+              placeholder="Ievadiet nosaukumu"
+            />
+          </div>
+        </div>
+      </Card>
+
+      {loading ? (
+        <div style={{ padding: 20 }}>Ielāde...</div>
+      ) : error ? (
+        <div style={{ padding: 20, color: "red" }}>{error}</div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
+          {filtered.map((c) => (
+            <Card key={c.id} style={{ minHeight: 240 }}>
+              <div style={{ fontWeight: 800, color: "#1e73d8", marginBottom: 6 }}>{c.name}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#0f4e9c" }}>
+                <FiMapPin /> {c.address_line}, {c.city}
+              </div>
+              <WorkingHours company={c} />
+              <div style={{ marginTop: 12 }}>
+                <Button variant="primary" onClick={() => nav(`/app/companies/${c.id}`)}>
+                  Skatīt informāciju
+                </Button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -128,3 +128,61 @@
   box-shadow: 0 10px 10px rgba(226,59,59,.28);
 }
 
+.users-table {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.users-head,
+.users-row {
+  display: grid;
+  grid-template-columns: 40px 1fr 140px 120px 120px;
+  align-items: center;
+  gap: 8px;
+}
+.users-input {
+  border: 1px solid #cfd8e3;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #f5f7fb;
+}
+.icon-btn {
+  border: none;
+  background: #e8f0ff;
+  padding: 8px;
+  border-radius: 10px;
+  cursor: pointer;
+  color: #1e73d8;
+}
+.icon-btn.danger {
+  background: #ffe6e6;
+  color: #d9534f;
+}
+.icon-btn.amber {
+  background: #fff4d8;
+  color: #e0a100;
+}
+
+.employees-layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 16px;
+}
+
+.employees-list {
+  padding: 12px;
+}
+.employees-header,
+.employees-row {
+  display: grid;
+  grid-template-columns: 40px 1fr 120px;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.row-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+

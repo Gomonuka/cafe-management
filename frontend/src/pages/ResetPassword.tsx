@@ -29,8 +29,8 @@ export default function ResetPassword() {
       setError("Invalid reset link.");
       return;
     }
-    if (p1.length < 6) {
-      setError("Parolei jābūt vismaz 6 simboli.");
+    if (p1.length < 8) {
+      setError("Parolei jābūt vismaz 8 simboliem.");
       return;
     }
     if (p1 !== p2) {
@@ -38,7 +38,12 @@ export default function ResetPassword() {
       return;
     }
 
-    const res = await confirmPasswordReset({ uid, token, new_password: p1 });
+    const res = await confirmPasswordReset({
+      uid,
+      token,
+      new_password: p1,
+      repeat_password: p2,
+    });
     if (!res.ok) {
       setError(res.data?.detail || JSON.stringify(res.data));
       return;
@@ -51,7 +56,8 @@ export default function ResetPassword() {
     <AuthCard
       subtitle={
         <>
-          Lūdzu, ievadiet jauno paroli savam<br />
+          Lūdzu, ievadiet jauno paroli savam
+          <br />
           kontam.
         </>
       }
@@ -77,13 +83,17 @@ export default function ResetPassword() {
           onRightIconClick={() => setShow2((s) => !s)}
         />
 
-        <button className="btn" type="submit">Atiestatīt paroli</button>
+        <button className="btn" type="submit">
+          Atiestatīt paroli
+        </button>
       </form>
 
       <OkBox text={ok} />
       <ErrorBox text={error} />
 
-      <a className="link" href="/">Atpakaļ uz login</a>
+      <a className="link" href="/">
+        Atpakaļ uz login
+      </a>
     </AuthCard>
   );
 }

@@ -48,7 +48,7 @@ class Order(models.Model):
         TAKEAWAY = "TA", "Līdzņemšanai"
 
     # Pasūtījums pieder klientam un uzņēmumam
-    user = models.ForeignKey("accounts.User", on_delete=models.PROTECT, related_name="orders")
+    user = models.ForeignKey("accounts.User", null=True, blank=True, on_delete=models.PROTECT, related_name="orders")
     company = models.ForeignKey("companies.Company", on_delete=models.PROTECT, related_name="orders")
 
     status = models.CharField(max_length=3, choices=Status.choices, default=Status.NEW)
@@ -57,7 +57,7 @@ class Order(models.Model):
     notes = models.CharField(max_length=1000, blank=True)
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
     completed_at = models.DateTimeField(null=True, blank=True)
 
     def set_status(self, new_status: str):

@@ -3,18 +3,18 @@ from rest_framework import serializers
 from .models import Company, CompanyWorkingHour
 
 
-PHONE_RE = re.compile(r"^\+\d[\d\s\-]{6,20}$")  # vienkārša validācija ar valsts kodu
+PHONE_RE = re.compile(r"^\+\d[\d\s\-]{6,20}$")  # vienkarsa validacija ar valsts kodu
 
 
 class WorkingHourInputSerializer(serializers.Serializer):
-    # Ievadei: viena diena ar "No" un "Līdz"
+    # Ievadei: viena diena ar "No" un "Lidz"
     weekday = serializers.IntegerField(min_value=0, max_value=6)
     from_time = serializers.TimeField()
     to_time = serializers.TimeField()
 
     def validate(self, attrs):
-        # Validācija: No < Līdz (COMP_004) vai No <= Līdz (COMP_005),
-        # un slēgta diena = 00:00-00:00
+        # Validacija: No < Lidz (COMP_004) vai No <= Lidz (COMP_005),
+        # un sleegta diena = 00:00-00:00
         ft = attrs["from_time"]
         tt = attrs["to_time"]
 
@@ -22,10 +22,8 @@ class WorkingHourInputSerializer(serializers.Serializer):
         if is_closed:
             return attrs
 
-        # Šeit pielietojam stingrāko: No < Līdz
-        # (COMP_005 pieļauj No <= Līdz, bet praktiski No=Līdz nav jēgas, izņemot slēgts)
         if ft >= tt:
-            raise serializers.ValidationError("Darba laikam jābūt korektam: 'No' jābūt mazākam par 'Līdz'.")
+            raise serializers.ValidationError("Darba laikam jabut korektam: 'No' jabut mazakam par 'Lidz'.")
         return attrs
 
 
@@ -36,9 +34,10 @@ class WorkingHourPublicSerializer(serializers.ModelSerializer):
 
 
 class CompanyPublicSerializer(serializers.ModelSerializer):
-    # Klientam: logotips, nosaukums, adrese, darba laiks + “open_now”
+    # Klientam: logotips, nosaukums, adrese, darba laiks + open_now
     working_hours = WorkingHourPublicSerializer(many=True, read_only=True)
     open_now = serializers.SerializerMethodField()
+    address_line = serializers.CharField(source="address_line1")
 
     class Meta:
         model = Company
@@ -67,8 +66,9 @@ class CompanyAdminListSerializer(serializers.ModelSerializer):
 
 
 class CompanyDetailSerializer(serializers.ModelSerializer):
-    # Detalizētai informācijai (COMP_003) + darba laiki
+    # Detalizetai informacijai (COMP_003) + darba laiki
     working_hours = WorkingHourPublicSerializer(many=True, read_only=True)
+    address_line = serializers.CharField(source="address_line1")
 
     class Meta:
         model = Company
@@ -82,8 +82,9 @@ class CompanyDetailSerializer(serializers.ModelSerializer):
 
 
 class CompanyCreateUpdateSerializer(serializers.ModelSerializer):
-    # COMP_004/COMP_005: izveide/rediģēšana ar strukturētiem darba laikiem
+    # COMP_004/COMP_005: izveide/redigesana ar strukturetiem darba laikiem
     working_hours = WorkingHourInputSerializer(many=True)
+    address_line = serializers.CharField(source="address_line1")
 
     class Meta:
         model = Company
@@ -94,46 +95,51 @@ class CompanyCreateUpdateSerializer(serializers.ModelSerializer):
 
     def validate_name(self, value):
         if not value or len(value) > 255:
-            raise serializers.ValidationError("Uzņēmuma nosaukums ir obligāts un līdz 255 simboliem.")
+            raise serializers.ValidationError("Uzņēmuma nosaukums ir obligats un lidz 255 simboliem.")
         return value
 
     def validate_email(self, value):
         if not value or len(value) > 255:
-            raise serializers.ValidationError("E-pasts ir obligāts un līdz 255 simboliem.")
+            raise serializers.ValidationError("E-pasts ir obligats un lidz 255 simboliem.")
         return value.lower().strip()
 
     def validate_phone(self, value):
         if not PHONE_RE.match(value.strip()):
-            raise serializers.ValidationError("Tālrunim jābūt ar valsts kodu (piem., +371...).")
+            raise serializers.ValidationError("Talrunim jabut ar valsts kodu (piem., +371...).")
         return value.strip()
 
     def validate_country(self, value):
         if not value or len(value) > 255:
-            raise serializers.ValidationError("Valsts ir obligāta un līdz 255 simboliem.")
+            raise serializers.ValidationError("Valsts ir obligata un lidz 255 simboliem.")
         return value
 
     def validate_city(self, value):
         if not value or len(value) > 255:
-            raise serializers.ValidationError("Pilsēta ir obligāta un līdz 255 simboliem.")
+            raise serializers.ValidationError("Pilseta ir obligata un lidz 255 simboliem.")
         return value
 
     def validate_address_line(self, value):
         if not value or len(value) > 255:
-            raise serializers.ValidationError("Adrese ir obligāta un līdz 255 simboliem.")
+            raise serializers.ValidationError("Adrese ir obligata un lidz 255 simboliem.")
         return value
 
     def validate_description(self, value):
         if not value or len(value) > 1000:
-            raise serializers.ValidationError("Apraksts ir obligāts un līdz 1000 simboliem.")
+            raise serializers.ValidationError("Apraksts ir obligats un lidz 1000 simboliem.")
+        return value
+
+    def validate_logo(self, value):
+        if not value:
+            raise serializers.ValidationError("Uzņēmuma logotips ir obligats.")
         return value
 
     def validate_working_hours(self, value):
         # Jābūt 7 ierakstiem (katrai dienai)
         if len(value) != 7:
-            raise serializers.ValidationError("Darba laikiem jābūt norādītiem katrai nedēļas dienai (7 ieraksti).")
+            raise serializers.ValidationError("Darba laikiem jabut noraditiem katrai nedelas dienai (7 ieraksti).")
         weekdays = [x["weekday"] for x in value]
         if sorted(weekdays) != [0, 1, 2, 3, 4, 5, 6]:
-            raise serializers.ValidationError("Darba laiku dienām jābūt 0..6 bez dublikātiem.")
+            raise serializers.ValidationError("Darba laiku dienam jabut 0..6 bez dublikatiem.")
         return value
 
     def create(self, validated_data):
@@ -147,7 +153,7 @@ class CompanyCreateUpdateSerializer(serializers.ModelSerializer):
         return company
 
     def update(self, instance, validated_data):
-        # Rediģē uzņēmumu + pārraksta darba laikus
+        # Redige uzņēmumu + pārraksta darba laikus
         wh_data = validated_data.pop("working_hours", None)
 
         for k, v in validated_data.items():

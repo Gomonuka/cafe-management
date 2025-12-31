@@ -3,7 +3,6 @@ from django.db import models
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 from .managers import UserManager
-objects = UserManager()
 
 # 50MB
 MAX_FILE_SIZE = 50 * 1024 * 1024
@@ -19,6 +18,8 @@ def validate_image_file(file_obj):
         raise ValidationError("Atļautie faila formati: JPG, PNG.")
 
 class User(AbstractUser):
+    objects = UserManager()
+
     class Role(models.TextChoices):
         CLIENT = "client", "Client"
         EMPLOYEE = "employee", "Employee"

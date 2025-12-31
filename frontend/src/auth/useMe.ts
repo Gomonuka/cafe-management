@@ -1,14 +1,12 @@
 import { useEffect, useState } from "react";
-import { api } from "../api/client";
+import { getMe } from "./auth.api";
 
 export type MeUser = {
   id: number;
   username: string;
   email: string;
   role: "client" | "employee" | "company_admin" | "system_admin";
-  language?: string;
-  theme?: string;
-  company?: number | null; // или объект — тогда поменяй проверку в RequireCompany
+  company?: number | null;
 };
 
 export function useMe() {
@@ -17,23 +15,13 @@ export function useMe() {
 
   useEffect(() => {
     let mounted = true;
-
     async function run() {
-      try {
-        const access = localStorage.getItem("access");
-        if (!access) {
-          if (mounted) setUser(null);
-          return;
-        }
-        const me = await api.get<MeUser>("/api/me/");
-        if (mounted) setUser(me);
-      } catch {
-        if (mounted) setUser(null);
-      } finally {
-        if (mounted) setLoading(false);
-      }
+      const res = await getMe();
+      if (!mounted) return;
+      if (res.ok) setUser(res.data as MeUser);
+      else setUser(null);
+      setLoading(false);
     }
-
     run();
     return () => {
       mounted = false;

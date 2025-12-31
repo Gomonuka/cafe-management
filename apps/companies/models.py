@@ -27,7 +27,7 @@ class Company(models.Model):
     description = models.TextField(max_length=1000)
 
     # Logotips ir obligāts (COMP_004)
-    logo = models.ImageField(upload_to=company_logo_path, validators=[validate_image_file])
+    logo = models.ImageField(upload_to=company_logo_path, validators=[validate_image_file], null=True, blank=True)
 
     # Statusi:
     # is_active = aktīvs/neaktīvs (COMP_011)
@@ -37,7 +37,7 @@ class Company(models.Model):
     is_blocked = models.BooleanField(default=False)
     deleted_at = models.DateTimeField(null=True, blank=True)
 
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
 
     def soft_delete(self):
         # Soft-delete: atzīmē kā dzēstu un iestata neaktīvu

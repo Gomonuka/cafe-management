@@ -17,7 +17,7 @@ export default function ForgotPassword() {
     setError(null);
     setOk(null);
 
-    const res = await requestPasswordReset(email);
+    const res = await requestPasswordReset(email, window.location.origin);
     if (!res.ok) {
       setError(JSON.stringify(res.data));
       return;
@@ -37,13 +37,17 @@ export default function ForgotPassword() {
     >
       <form className="form" onSubmit={onSubmit}>
         <AuthField leftIcon={<FiMail />} placeholder="E-pasts" value={email} onChange={setEmail} />
-        <button className="btn" type="submit">Nosūtīt saiti</button>
+        <button className="btn" type="submit">
+          Nosūtīt saiti
+        </button>
       </form>
 
       <OkBox text={ok} />
       <ErrorBox text={error} />
 
-      <a className="link" href="/">Atpakaļ uz login</a>
+      <a className="link" href="/">
+        Atpakaļ uz login
+      </a>
     </AuthCard>
   );
 }

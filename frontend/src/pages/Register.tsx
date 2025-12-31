@@ -6,7 +6,7 @@ import { FiUser, FiMail, FiLock, FiEye, FiEyeOff, FiChevronDown } from "react-ic
 import AuthCard from "../components/auth/AuthCard";
 import AuthField from "../components/auth/AuthField";
 import { ErrorBox, OkBox } from "../components/auth/AuthMessage";
-import { register, login } from "../auth/auth.api";
+import { register } from "../auth/auth.api";
 
 type Role = "client" | "company_admin";
 
@@ -28,18 +28,20 @@ export default function Register() {
     setError(null);
     setOk(null);
 
-    const res = await register({ username, email, password, role });
+    if (password.length < 8) {
+      setError("Parolei jābūt vismaz 8 simboliem.");
+      return;
+    }
+
+    const res = await register({ username, email, password, role, auto_login: autoLogin });
     if (!res.ok) {
       setError(JSON.stringify(res.data));
       return;
     }
 
     if (autoLogin) {
-      const res2 = await login({ username, password });
-      if (res2.ok) {
-        nav("/app");
-        return;
-      }
+      nav("/app/companies");
+      return;
     }
 
     setOk("Konts izveidots. Tagad vari ieiet.");
@@ -73,25 +75,25 @@ export default function Register() {
           onRightIconClick={() => setShow((s) => !s)}
         />
 
-        <button className="btn" type="submit">Pierakstīties</button>
+        <button className="btn" type="submit">
+          Reģistrēties
+        </button>
       </form>
 
       <div className="row">
         <label className="check">
-            <input
-                type="checkbox"
-                checked={autoLogin}
-                onChange={(e) => setAutoLogin(e.target.checked)}
-            />
-            <span className="box" />
-            Ienākt uzreiz?
+          <input type="checkbox" checked={autoLogin} onChange={(e) => setAutoLogin(e.target.checked)} />
+          <span className="box" />
+          Ienākt uzreiz?
         </label>
       </div>
 
       <OkBox text={ok} />
       <ErrorBox text={error} />
 
-      <a className="link" href="/">Atgriezties pie pierakstīšanās</a>
+      <a className="link" href="/">
+        Ir konts? Ienākt
+      </a>
     </AuthCard>
   );
 }

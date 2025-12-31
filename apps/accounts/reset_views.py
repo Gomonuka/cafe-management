@@ -10,10 +10,19 @@ from .password_reset import token_generator
 
 from apps.notifications.services import send_email_from_template
 
+
 def send_password_reset_email(to_email: str, link: str):
-    # Šeit vēlāk pieslēgsi Brevo/notifications moduli (NOTIF_008).
-    # Pagaidām var ielikt print/log vai izsaukumu uz savu email servisu.
-    print(f"[RESET LINK] {to_email}: {link}")
+    context = {"reset_link": link}
+    log = send_email_from_template(
+        template_code="PASSWORD_RESET",
+        to_email=to_email,
+        context=context,
+        company_id=None,
+    )
+    if log is None:
+        # Fallback to console when template is missing or inactive.
+        print(f"[RESET LINK] {to_email}: {link}")
+
 
 class PasswordResetRequestView(APIView):
     permission_classes = [AllowAny]
@@ -26,15 +35,12 @@ class PasswordResetRequestView(APIView):
         uid = urlsafe_base64_encode(force_bytes(user.id))
         token = token_generator.make_token(user)
 
-        # Saite uz FE (piemērs): FRONTEND_URL/reset-password?uid=...&token=...
-        frontend_url = request.data.get("frontend_url")  # pēc izvēles
-        if not frontend_url:
-            frontend_url = "http://localhost:5173"
-
+        frontend_url = request.data.get("frontend_url") or "http://localhost:5173"
         link = f"{frontend_url}/reset-password?uid={uid}&token={token}"
         send_password_reset_email(user.email, link)
 
-        return Response({"code": "P_012", "detail": "Paroles atiestatīšanas saite ir nosūtīta."}, status=status.HTTP_200_OK)
+        return Response({"code": "P_012", "detail": "Paroles atiestatisanas saite ir nosutita."}, status=status.HTTP_200_OK)
+
 
 class PasswordResetConfirmView(APIView):
     permission_classes = [AllowAny]
@@ -47,4 +53,4 @@ class PasswordResetConfirmView(APIView):
         user.set_password(s.validated_data["new_password"])
         user.save(update_fields=["password"])
 
-        return Response({"code": "P_013", "detail": "Parole ir veiksmīgi atiestatīta."}, status=status.HTTP_200_OK)
+        return Response({"code": "P_013", "detail": "Parole ir veiksmigi atiestatita."}, status=status.HTTP_200_OK)
