@@ -7,6 +7,8 @@ export type MeUser = {
   email: string;
   role: "client" | "employee" | "company_admin" | "system_admin";
   company?: number | null;
+  requires_profile_completion?: boolean;
+  requires_company_creation?: boolean;
 };
 
 export function useMe() {

@@ -8,6 +8,7 @@ import "./styles/auth.css";
 import "./styles/ui.css";
 import "./styles/layout.css";
 import "./styles/profile.css";
+import "./styles/menu.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

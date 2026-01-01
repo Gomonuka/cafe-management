@@ -7,6 +7,7 @@ import AuthCard from "../components/auth/AuthCard";
 import AuthField from "../components/auth/AuthField";
 import { ErrorBox } from "../components/auth/AuthMessage";
 import { login } from "../auth/auth.api";
+import { fetchMe } from "../api/accounts";
 
 export default function Login() {
   const nav = useNavigate();
@@ -24,7 +25,36 @@ export default function Login() {
       setError(res.data?.detail || res.data?.code || "Login failed");
       return;
     }
-    nav("/app/companies");
+
+    const me = await fetchMe();
+    if (!me.ok) {
+      nav("/app/companies");
+      return;
+    }
+
+    if (me.data.requires_profile_completion) {
+      nav("/app/profile");
+      return;
+    }
+    if (me.data.requires_company_creation) {
+      nav("/app/create-company");
+      return;
+    }
+
+    switch (me.data.role) {
+      case "system_admin":
+        nav("/app/profile");
+        break;
+      case "employee":
+        nav("/app/orders");
+        break;
+      case "company_admin":
+        nav("/app/admin");
+        break;
+      case "client":
+      default:
+        nav("/app/companies");
+    }
   };
 
   return (

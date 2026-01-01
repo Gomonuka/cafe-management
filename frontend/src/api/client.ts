@@ -4,16 +4,16 @@ import type { AxiosError, AxiosRequestConfig } from "axios";
 const BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000/api";
 
 export const api = axios.create({
-  baseURL: BASE_URL,
+  baseURL: BASE_URL.replace(/\/$/, ""),
   withCredentials: true,
 });
 
-// 401 retry once via cookie refresh
 api.interceptors.response.use(
   (res) => res,
   async (error: AxiosError) => {
     const original = error.config as (AxiosRequestConfig & { _retry?: boolean }) | undefined;
-    if (error.response?.status === 401 && !original?._retry) {
+    const isRefreshCall = original?.url?.includes("/accounts/auth/refresh/");
+    if (error.response?.status === 401 && original && !original._retry && !isRefreshCall) {
       original._retry = true;
       try {
         await api.post("/accounts/auth/refresh/");

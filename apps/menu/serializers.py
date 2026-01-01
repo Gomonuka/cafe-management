@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from apps.accounts.models import User
-from apps.inventory.models import InventoryItem  # jāeksistē inventory app/modelim
+from apps.inventory.models import InventoryItem
 
 from .models import MenuCategory, Product, RecipeItem
 
@@ -11,7 +11,6 @@ class RecipeItemInputSerializer(serializers.Serializer):
     amount = serializers.DecimalField(max_digits=12, decimal_places=3)
 
     def validate_amount(self, value):
-        # Daudzumam jābūt pozitīvam
         if value <= 0:
             raise serializers.ValidationError("Daudzumam jābūt pozitīvam.")
         return value
@@ -36,12 +35,10 @@ class ProductAdminSerializer(serializers.ModelSerializer):
 
 
 class MenuPublicSerializer(serializers.Serializer):
-    # Klientam: kategorijas ar produktiem (tikai aktīvas kategorijas un pieejamie produkti)
     categories = serializers.ListField()
 
 
 class MenuAdminSerializer(serializers.Serializer):
-    # UA: kategoriju saraksts + produktu saraksts ar ID un nosaukumiem
     categories = serializers.ListField()
     products = serializers.ListField()
 
@@ -80,14 +77,17 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Cena par vienību ir jābūt pozitīvai.")
         return value
 
+    def validate_photo(self, value):
+        if not value:
+            raise serializers.ValidationError("Produkta fotogrāfija ir obligāta.")
+        return value
+
     def validate_recipe(self, value):
-        # Recepte ir obligāta un vismaz ar 1 sastāvdaļu
         if not value or len(value) < 1:
             raise serializers.ValidationError("Recepte ir obligāta un jānorāda vismaz 1 sastāvdaļa.")
         return value
 
     def validate(self, attrs):
-        # Pārbauda, ka sastāvdaļas pieder uzņēmuma noliktavai
         company = self.context["company"]
         recipe = attrs.get("recipe", [])
         ids = [x["inventory_item_id"] for x in recipe]
@@ -95,6 +95,10 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
         inv_qs = InventoryItem.objects.filter(company=company, id__in=ids)
         if inv_qs.count() != len(set(ids)):
             raise serializers.ValidationError("Recepte satur noliktavas sastāvdaļu, kas nepieder uzņēmumam.")
+
+        category = attrs.get("category")
+        if category and category.company_id != company.id:
+            raise serializers.ValidationError({"category": "Kategorija nepieder uzņēmumam."})
         return attrs
 
     def create(self, validated_data):
@@ -103,15 +107,10 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
 
         product = Product.objects.create(company=company, **validated_data)
 
-        items = []
-        for row in recipe_data:
-            items.append(
-                RecipeItem(
-                    product=product,
-                    inventory_item_id=row["inventory_item_id"],
-                    amount=row["amount"],
-                )
-            )
+        items = [
+            RecipeItem(product=product, inventory_item_id=row["inventory_item_id"], amount=row["amount"])
+            for row in recipe_data
+        ]
         RecipeItem.objects.bulk_create(items)
         return product
 
@@ -123,17 +122,11 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
         instance.save()
 
         if recipe_data is not None:
-            # Atjaunina recepti (pārraksta)
             RecipeItem.objects.filter(product=instance).delete()
-            items = []
-            for row in recipe_data:
-                items.append(
-                    RecipeItem(
-                        product=instance,
-                        inventory_item_id=row["inventory_item_id"],
-                        amount=row["amount"],
-                    )
-                )
+            items = [
+                RecipeItem(product=instance, inventory_item_id=row["inventory_item_id"], amount=row["amount"])
+                for row in recipe_data
+            ]
             RecipeItem.objects.bulk_create(items)
 
         return instance

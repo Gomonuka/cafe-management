@@ -1,35 +1,57 @@
-import { FiUploadCloud, FiX } from "react-icons/fi";
+import { useRef } from "react";
+import { FiUploadCloud } from "react-icons/fi";
 import Card from "../ui/Card";
 import Button from "../ui/Button";
 import "../../styles/profile.css";
 
 export default function AvatarBlock({
   avatarUrl,
+  error,
   onUpload,
-  onRemove,
 }: {
   avatarUrl?: string | null;
-  onUpload: () => void;
-  onRemove: () => void;
+  error?: string | null;
+  onUpload: (file?: File) => void;
 }) {
+  const fileInput = useRef<HTMLInputElement | null>(null);
+  const apiBase = import.meta.env.VITE_API_URL ?? "http://localhost:8000/api";
+  const mediaHost = apiBase.replace(/\/api\/?$/, "");
+  const resolvedAvatar =
+    avatarUrl && !avatarUrl.startsWith("http") ? `${mediaHost}${avatarUrl}` : avatarUrl || null;
+
+  const triggerUpload = () => {
+    fileInput.current?.click();
+  };
+
+  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    onUpload(file || undefined);
+    if (fileInput.current) fileInput.current.value = "";
+  };
+
   return (
     <Card>
       <div className="block-title">Konta fotogrāfija</div>
 
       <div className="avatar-row">
-        <div className="avatar">
-          {avatarUrl ? <img src={avatarUrl} alt="avatar" /> : null}
-        </div>
-
-        <button className="avatar-remove" type="button" onClick={onRemove} title="Remove">
-          <FiX />
-        </button>
+        <div className="avatar">{resolvedAvatar ? <img src={resolvedAvatar} alt="avatar" /> : null}</div>
       </div>
 
-      <Button variant="ghost" full onClick={onUpload}>
-        <span className="btn-ic"><FiUploadCloud /></span>
+      <input
+        type="file"
+        accept="image/*"
+        ref={fileInput}
+        style={{ display: "none" }}
+        onChange={onFileChange}
+      />
+
+      <Button variant="primary" full onClick={triggerUpload}>
+        <span className="btn-ic">
+          <FiUploadCloud />
+        </span>
         Augšupielādēt jauno fotogrāfiju
       </Button>
+      {error ? <div className="field-error">{error}</div> : null}
     </Card>
   );
 }

@@ -7,6 +7,7 @@ from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, Ou
 
 from apps.accounts.models import User
 from .serializers import RegisterSerializer, ProfileReadSerializer, ProfileUpdateSerializer
+from apps.accounts.models import SecretQuestion
 from .auth_views import set_jwt_cookies
 
 
@@ -82,3 +83,11 @@ class LogoutView(APIView):
             return Response({"detail": "Invalid refresh token."}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response({"detail": "Logged out."}, status=status.HTTP_200_OK)
+
+
+class SecretQuestionListView(generics.ListAPIView):
+    permission_classes = [AllowAny]
+
+    def list(self, request, *args, **kwargs):
+        data = [{"id": q.id, "text": q.text} for q in SecretQuestion.objects.filter(is_active=True).order_by("id")]
+        return Response(data, status=status.HTTP_200_OK)

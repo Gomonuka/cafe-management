@@ -12,8 +12,6 @@ from rest_framework.exceptions import PermissionDenied, NotFound, ValidationErro
 from apps.accounts.models import User
 from apps.companies.models import Company
 from apps.menu.models import Product
-from apps.notifications.services import send_email_from_template
-
 from .models import Cart, CartItem, Order, OrderItem
 from .services import consume_inventory_for_order
 from .permissions import IsClient, IsCompanyStaff
@@ -173,18 +171,6 @@ class CheckoutView(APIView):
         # Notīra grozu pēc pasūtījuma izveides
         cart.delete()
 
-        admin = User.objects.filter(company_id=company_id, role=User.Role.COMPANY_ADMIN).first()
-        if admin and admin.email:
-            send_email_from_template(
-                template_code="NEW_ORDER_COMPANY",
-                to_email=admin.email,
-                company_id=company_id,
-                context={
-                    "order": {"id": order.id, "total": str(order.total_amount), "type": order.order_type},
-                    "company": {"name": company.name},
-                },
-            )
-
         return Response({"code": "P_001", "detail": "Pasūtījums ir izveidots.", "order_id": order.id},
                         status=status.HTTP_201_CREATED)
 
@@ -320,17 +306,6 @@ class ChangeOrderStatusView(APIView):
             raise ValidationError({"code": "P_010", "detail": "Statusa maiņa nav atļauta vai nepietiek noliktavas atlikuma."})
 
         order.save(update_fields=["status", "completed_at"])
-        # NOTIF_006: paziņojums klientam par statusa maiņu
-        if order.user and order.user.email:
-            send_email_from_template(
-                template_code="ORDER_STATUS_CHANGED",
-                to_email=order.user.email,
-                company_id=order.company_id,
-                context={
-                    "order": {"id": order.id, "status": order.get_status_display()},
-                    "company": {"name": order.company.name},
-                },
-            )
         return Response({"detail": "Statuss atjaunināts."}, status=status.HTTP_200_OK)
 
 

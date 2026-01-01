@@ -44,7 +44,6 @@ INSTALLED_APPS = [
     'apps.orders',
     'apps.menu',
     "apps.inventory",
-    "apps.notifications",
     'rest_framework',
     "rest_framework_simplejwt.token_blacklist",
     'corsheaders',
@@ -139,7 +138,7 @@ AUTH_USER_MODEL = "accounts.User"
 
 CORS_ALLOW_CREDENTIALS = True
 _frontend_origins = os.getenv("FRONTEND_URL", "http://localhost:5173")
-CORS_ALLOWED_ORIGINS = [o.strip() for o in _frontend_origins.split(",") if o.strip()]
+CORS_ALLOWED_ORIGINS = [o.strip().rstrip("/") for o in _frontend_origins.split(",") if o.strip()]
 CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
 
 REST_FRAMEWORK = {
@@ -157,7 +156,3 @@ SIMPLE_JWT = {
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
 }
-
-BREVO_API_KEY = os.getenv("BREVO_API_KEY", "")
-BREVO_SENDER_EMAIL = os.getenv("BREVO_SENDER_EMAIL", "")
-BREVO_SENDER_NAME = os.getenv("BREVO_SENDER_NAME", "System")

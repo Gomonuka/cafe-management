@@ -8,15 +8,9 @@ export default function SecurityBlock({ onChangePassword }: { onChangePassword: 
     <Card>
       <div className="block-title">Drošība</div>
 
-      <Input
-        label="Parole"
-        leftIcon={<FiLock />}
-        value="************"
-        onChange={() => {}}
-        disabled
-      />
+      <Input label="Parole" leftIcon={<FiLock />} value="************" onChange={() => {}} disabled />
 
-      <div style={{ marginTop: 10 }}>
+      <div className="actions actions-wide" style={{ marginTop: 10 }}>
         <Button variant="primary" onClick={onChangePassword}>
           Mainīt paroli
         </Button>

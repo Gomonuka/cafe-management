@@ -1,6 +1,6 @@
 from django.urls import path
 from .auth_views import EmailLoginView, RefreshCookieView, LogoutCookieView
-from .views import RegisterView, ProfileView, DeleteMeView
+from .views import RegisterView, ProfileView, DeleteMeView, SecretQuestionListView
 from .reset_views import PasswordResetRequestView, PasswordResetConfirmView
 from .admin_views import AdminUserListView, AdminUserSoftDeleteView, AdminUserBlockView
 from .employee_views import EmployeeListView, EmployeeCreateView, EmployeeUpdateView, EmployeeSoftDeleteView
@@ -19,6 +19,7 @@ urlpatterns = [
     # USER_007
     path("auth/password-reset/request/", PasswordResetRequestView.as_view()),
     path("auth/password-reset/confirm/", PasswordResetConfirmView.as_view()),
+    path("auth/secret-questions/", SecretQuestionListView.as_view()),
 
     # USER_008, USER_009, USER_014 (SA)
     path("admin/users/", AdminUserListView.as_view()),

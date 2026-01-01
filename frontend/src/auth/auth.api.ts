@@ -6,6 +6,8 @@ export async function register(payload: {
   password: string;
   role: "client" | "company_admin";
   auto_login?: boolean;
+  secret_question: number;
+  secret_answer: string;
 }) {
   return request({
     url: "/accounts/auth/register/",
@@ -40,13 +42,14 @@ export async function requestPasswordReset(email: string, frontend_url?: string)
   return request({
     url: "/accounts/auth/password-reset/request/",
     method: "POST",
-    data: { email, frontend_url },
+    data: { email },
   });
 }
 
 export async function confirmPasswordReset(payload: {
   uid: string;
   token: string;
+  answer: string;
   new_password: string;
   repeat_password: string;
 }) {

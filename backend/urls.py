@@ -1,6 +1,5 @@
 from django.conf import settings
 from django.conf.urls.static import static
-from django.contrib import admin
 from django.urls import path, include
 
 urlpatterns = [
@@ -9,7 +8,6 @@ urlpatterns = [
     path("menu/", include("apps.menu.urls")),
     path("orders/", include("apps.orders.urls")),
     path("inventory/", include("apps.inventory.urls")),
-    path("notifications/", include("apps.notifications.urls")),
 ]
 
 if settings.DEBUG:

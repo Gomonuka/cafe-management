@@ -31,7 +31,9 @@ export default function Sidebar({ role, fullName, onLogout, onNavigate }: Props)
               onClick={onNavigate}
               className={({ isActive }) => `sb-link ${isActive ? "active" : ""}`}
             >
-              <span className="sb-ic"><Icon /></span>
+              <span className="sb-ic">
+                <Icon />
+              </span>
               <span>{it.label}</span>
             </NavLink>
           );
@@ -40,14 +42,16 @@ export default function Sidebar({ role, fullName, onLogout, onNavigate }: Props)
 
       <div className="sb-bottom">
         <NavLink to="/app/profile" className="sb-user" onClick={onNavigate}>
-          <span className="sb-user-ic"><FiUser /></span>
+          <span className="sb-user-ic">
+            <FiUser />
+          </span>
           <div>
             <div className="sb-role">{roleLabel[role]}</div>
             <div className="sb-name">{fullName}</div>
           </div>
         </NavLink>
 
-        <button className="sb-logout" onClick={onLogout} type="button" title="Logout">
+        <button className="sb-logout" onClick={onLogout} type="button" title="Iziet">
           <FiLogOut />
         </button>
       </div>

@@ -45,6 +45,16 @@ class User(AbstractUser):
         related_name="users",
     )
 
+    secret_question = models.ForeignKey(
+        "accounts.SecretQuestion",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="users",
+    )
+    secret_answer = models.CharField(max_length=255, blank=True, default="")
+    profile_completed = models.BooleanField(default=False)
+
     def soft_delete(self):
         self.deleted_at = timezone.now()
         self.is_active = False
@@ -53,3 +63,15 @@ class User(AbstractUser):
     @property
     def is_deleted(self) -> bool:
         return self.deleted_at is not None
+
+
+class SecretQuestion(models.Model):
+    text = models.CharField(max_length=255, unique=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+
+    class Meta:
+        ordering = ["id"]
+
+    def __str__(self):
+        return self.text

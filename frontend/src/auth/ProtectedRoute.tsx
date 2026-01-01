@@ -11,7 +11,7 @@ function roleHome(role: Role) {
     case "company_admin":
       return "/app/admin";
     case "system_admin":
-      return "/app/system";
+      return "/app/profile";
   }
 }
 

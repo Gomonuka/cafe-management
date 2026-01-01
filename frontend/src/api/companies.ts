@@ -27,7 +27,7 @@ export type CompanyDetail = {
   deleted_at: string | null;
 };
 
-export type AdminCompany = { id: number; name: string; status: string };
+export type AdminCompany = { id: number; name: string; status: string; is_blocked?: boolean };
 
 export async function listCompanies(params?: { search?: string; sort?: "asc" | "desc" }) {
   return request<PublicCompany[]>({

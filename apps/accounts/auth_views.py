@@ -38,7 +38,12 @@ class EmailLoginView(APIView):
 
         user = s.validated_data["user"]
         refresh = RefreshToken.for_user(user)
-        resp = Response({"code": "P_001", "detail": "Pierakstisana veiksmiga."}, status=status.HTTP_200_OK)
+        payload = {"code": "P_001", "detail": "Pierakstisana veiksmiga.", "requires_company_creation": False, "requires_profile_completion": False}
+        if user.role == "company_admin" and not user.company_id:
+            payload["requires_company_creation"] = True
+        if not getattr(user, "profile_completed", False):
+            payload["requires_profile_completion"] = True
+        resp = Response(payload, status=status.HTTP_200_OK)
         set_jwt_cookies(resp, refresh)
         return resp
 

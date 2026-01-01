@@ -260,14 +260,15 @@ body{
 
 .err{
   margin-top: 12px;
-  padding: 10px 12px;
+  padding: 12px 14px;
   border-radius: 12px;
-  background: rgba(239,68,68,.10);
-  color: #b91c1c;
+  background: rgba(226,59,59,0.12);
+  color: #c0392b;
   font-weight: 700;
   text-align:left;
   font-size: 13px;
   white-space: pre-wrap;
+  box-shadow: inset 0 -2px 0 rgba(0,0,0,0.03);
 }
 
 .ok{

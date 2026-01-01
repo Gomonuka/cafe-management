@@ -11,6 +11,11 @@ export type MeResponse = {
   role: UserRole;
   avatar?: string | null;
   company?: number | null;
+  secret_question?: number | null;
+  secret_question_text?: string | null;
+  requires_profile_completion?: boolean;
+  requires_company_creation?: boolean;
+  has_secret_answer?: boolean;
 };
 
 export async function fetchMe() {
@@ -22,7 +27,6 @@ export async function updateMe(data: FormData) {
     url: "/accounts/me/",
     method: "PATCH",
     data,
-    headers: { "Content-Type": "multipart/form-data" },
   });
 }
 
@@ -37,7 +41,14 @@ export async function changePassword(new_password: string, repeat_password: stri
   return request({ url: "/accounts/me/", method: "PATCH", data: fd });
 }
 
-export type AdminUser = { id: number; username: string; role: UserRole };
+export async function fetchSecretQuestions() {
+  return request<Array<{ id: number; text: string }>>({
+    url: "/accounts/auth/secret-questions/",
+    method: "GET",
+  });
+}
+
+export type AdminUser = { id: number; username: string; role: UserRole; is_blocked?: boolean };
 
 export async function fetchAdminUsers() {
   return request<AdminUser[]>({ url: "/accounts/admin/users/", method: "GET" });

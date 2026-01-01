@@ -133,6 +133,9 @@
   align-items:center;
   gap: 10px;
   min-width: 0;
+  text-decoration: none;
+  color: #fff;
+  font-weight: 800;
 }
 
 .sb-user-ic{
@@ -145,12 +148,13 @@
   justify-content:center;
   box-shadow: 0 10px 20px rgba(2, 32, 88, 0.18);
 }
-.sb-user-ic svg{ width: 18px; height: 18px; }
+.sb-user-ic svg{ width: 18px; height: 18px; color: #fff; }
 
 .sb-role{
   font-size: 12px;
   font-weight: 900;
-  opacity: .95;
+  opacity: 1;
+  color: #fff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -160,7 +164,8 @@
 .sb-name{
   font-size: 12px;
   font-weight: 700;
-  opacity: .95;
+  opacity: 1;
+  color: #fff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
