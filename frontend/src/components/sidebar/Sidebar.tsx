@@ -39,13 +39,13 @@ export default function Sidebar({ role, fullName, onLogout, onNavigate }: Props)
       </nav>
 
       <div className="sb-bottom">
-        <div className="sb-user">
+        <NavLink to="/app/profile" className="sb-user" onClick={onNavigate}>
           <span className="sb-user-ic"><FiUser /></span>
           <div>
             <div className="sb-role">{roleLabel[role]}</div>
             <div className="sb-name">{fullName}</div>
           </div>
-        </div>
+        </NavLink>
 
         <button className="sb-logout" onClick={onLogout} type="button" title="Logout">
           <FiLogOut />
