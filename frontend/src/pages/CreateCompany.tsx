@@ -1,16 +1,61 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Card from "../components/ui/Card";
 import Input from "../components/ui/Input";
 import Button from "../components/ui/Button";
 import { createCompany } from "../api/companies";
 import { FiUploadCloud, FiBriefcase, FiMail, FiPhone, FiGlobe, FiMapPin, FiFileText } from "react-icons/fi";
 
-const days = ["Pirmdiena", "Otrdiena", "Trešdiena", "Ceturtdiena", "Piektdiena", "Sestdiena", "Svētdiena"];
+type FormState = {
+  name: string;
+  email: string;
+  phone: string;
+  country: string;
+  city: string;
+  address_line: string;
+  description: string;
+  is_active: boolean;
+};
+
+const fieldLabels: Record<string, string> = {
+  name: "Uzņēmuma nosaukums",
+  email: "E-pasts",
+  phone: "Tālrunis",
+  country: "Valsts",
+  city: "Pilsēta",
+  address_line: "Adrese 1. līnija",
+  description: "Apraksts",
+  logo: "Logotips",
+  is_active: "Aktīvs",
+};
+
+const translateMsg = (msg: string) => {
+  switch (msg) {
+    case "This field may not be blank.":
+    case "This field is required.":
+      return "Lauks ir obligāts.";
+    default:
+      return msg;
+  }
+};
+
+const formatError = (data: any): string => {
+  if (!data) return "Nezināma kļūda.";
+  if (typeof data === "string") return translateMsg(data);
+  if (typeof data === "object") {
+    const parts: string[] = [];
+    Object.entries(data).forEach(([field, msgs]) => {
+      const label = fieldLabels[field] ?? field;
+      const txtRaw = Array.isArray(msgs) ? msgs.join(" ") : String(msgs);
+      parts.push(`${label}: ${translateMsg(txtRaw)}`);
+    });
+    return parts.join("\n");
+  }
+  return "Nezināma kļūda.";
+};
 
 export default function CreateCompanyPage() {
   const nav = useNavigate();
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<FormState>({
     name: "",
     email: "",
     phone: "",
@@ -18,35 +63,26 @@ export default function CreateCompanyPage() {
     city: "",
     address_line: "",
     description: "",
+    is_active: true,
   });
   const [logo, setLogo] = useState<File | undefined>(undefined);
-  const [workingHours, setWorkingHours] = useState(
-    days.map((_, idx) => ({ weekday: idx, from_time: "00:00", to_time: "00:00" }))
-  );
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
 
   const onSubmit = async () => {
     setError(null);
     const fd = new FormData();
-    Object.entries(form).forEach(([k, v]) => fd.append(k, v));
-    fd.append("working_hours", JSON.stringify(workingHours));
+    Object.entries(form).forEach(([k, v]) => fd.append(k, typeof v === "boolean" ? String(v) : v));
     if (logo) fd.append("logo", logo);
+
     const res = await createCompany(fd);
     if (!res.ok) {
-      setError(JSON.stringify(res.data));
+      const err = formatError(res.data);
+      setError(err);
       return;
     }
     setOk("Uzņēmums izveidots.");
     nav("/app/my-company");
-  };
-
-  const updateWH = (idx: number, field: "from_time" | "to_time", value: string) => {
-    setWorkingHours((prev) => {
-      const arr = [...prev];
-      arr[idx] = { ...arr[idx], [field]: value };
-      return arr;
-    });
   };
 
   return (
@@ -66,7 +102,7 @@ export default function CreateCompanyPage() {
         <div style={{ textAlign: "center", color: "#1e73d8", marginBottom: 14, fontWeight: 700 }}>
           Sistēmas izmantošanai uzņēmums ir obligāti jāizveido.
           <br />
-          Lūdzu, aizpildiet Jūsu uzņēmuma pamatinformāciju.
+          Lūdzu, aizpildiet jūsu uzņēmuma pamatinformāciju.
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -96,40 +132,38 @@ export default function CreateCompanyPage() {
             />
           </div>
 
-          <div style={{ marginTop: 6, fontWeight: 800, color: "#1e73d8" }}>Darba laiks</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {workingHours.map((wh, idx) => (
-              <div key={idx} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <div style={{ width: 90, fontWeight: 700 }}>{days[idx]}</div>
-                <input
-                  type="time"
-                  value={wh.from_time}
-                  onChange={(e) => updateWH(idx, "from_time", e.target.value)}
-                  style={{
-                    flex: 1,
-                    borderRadius: 10,
-                    padding: "10px 12px",
-                    border: "1px solid #cfd8e3",
-                    background: "#f6f7fb url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"%231e73d8\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><polyline points=\"12 6 12 12 16 14\"/></svg>') no-repeat right 10px center",
-                    color: "#1b2f5e",
-                  }}
-                />
-                <input
-                  type="time"
-                  value={wh.to_time}
-                  onChange={(e) => updateWH(idx, "to_time", e.target.value)}
-                  style={{
-                    flex: 1,
-                    borderRadius: 10,
-                    padding: "10px 12px",
-                    border: "1px solid #cfd8e3",
-                    background: "#f6f7fb url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"%231e73d8\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><polyline points=\"12 6 12 12 16 14\"/></svg>') no-repeat right 10px center",
-                    color: "#1b2f5e",
-                  }}
-                />
-              </div>
-            ))}
-          </div>
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: "12px 14px",
+              borderRadius: 12,
+              border: "1.5px solid #1e73d8",
+              background: "#f6f7fb",
+              color: "#1e73d8",
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={form.is_active}
+              onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
+              style={{
+                appearance: "none",
+                WebkitAppearance: "none",
+                width: 18,
+                height: 18,
+                borderRadius: 6,
+                border: "2px solid #1e73d8",
+                background: form.is_active ? "#1e73d8" : "#fff",
+                boxShadow: form.is_active ? "inset 0 0 0 3px #f6f7fb" : "none",
+                cursor: "pointer",
+              }}
+            />
+            <span>Uzņēmums aktīvs</span>
+          </label>
 
           <div style={{ marginTop: 10 }}>
             <label style={{ fontWeight: 700, color: "#1e73d8" }}>Uzņēmuma logotips</label>
@@ -176,8 +210,35 @@ export default function CreateCompanyPage() {
             Izveidot uzņēmumu
           </Button>
 
-          {error && <div style={{ color: "red", marginTop: 8 }}>{error}</div>}
-          {ok && <div style={{ color: "green", marginTop: 8 }}>{ok}</div>}
+          {error && (
+            <div
+              style={{
+                marginTop: 12,
+                padding: 12,
+                borderRadius: 12,
+                background: "rgba(226,59,59,0.12)",
+                color: "#c0392b",
+                whiteSpace: "pre-wrap",
+                fontWeight: 700,
+              }}
+            >
+              {error}
+            </div>
+          )}
+          {ok && (
+            <div
+              style={{
+                marginTop: 12,
+                padding: 12,
+                borderRadius: 12,
+                background: "rgba(34,197,94,0.12)",
+                color: "#166534",
+                fontWeight: 800,
+              }}
+            >
+              {ok}
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -14,7 +14,6 @@ from .serializers import (
     CompanyCreateUpdateSerializer,
 )
 from .permissions import IsSystemAdmin, IsCompanyAdmin
-from .utils import parse_working_hours
 
 def client_visible_queryset():
     # Klientam redzami tikai: aktīvi, nebloķēti, nav soft-delete
@@ -148,11 +147,7 @@ class CompanyCreateView(APIView):
         if user.company_id is not None:
             raise PermissionDenied("Uzņēmuma profils jau ir izveidots.")
 
-        # Parsē darba laikus no FormData (ja nepieciešams)
-        data = request.data.copy()
-        data["working_hours"] = parse_working_hours(data)
-
-        s = CompanyCreateUpdateSerializer(data=data)
+        s = CompanyCreateUpdateSerializer(data=request.data)
         s.is_valid(raise_exception=True)
         company = s.save()
 
@@ -184,12 +179,7 @@ class CompanyUpdateView(APIView):
         if not company:
             raise NotFound("Uzņēmums nav atrasts.")
 
-        data = request.data.copy()
-
-        # Darba laiki ir obligāti arī rediģējot (pēc prasības)
-        data["working_hours"] = parse_working_hours(data)
-
-        s = CompanyCreateUpdateSerializer(instance=company, data=data)
+        s = CompanyCreateUpdateSerializer(instance=company, data=request.data)
         s.is_valid(raise_exception=True)
         s.save()
 
@@ -216,6 +206,8 @@ class CompanySoftDeleteMyView(APIView):
             raise NotFound("Uzņēmums nav atrasts.")
 
         company.soft_delete()
+        for u in company.users.all():
+            u.soft_delete()
         return Response({"code": "P_004", "detail": "Uzņēmuma profils ir deaktivizēts (soft-delete)."},
                         status=status.HTTP_200_OK)
 
@@ -255,6 +247,8 @@ class AdminCompanySoftDeleteView(APIView):
             raise NotFound("Uzņēmums nav atrasts.")
 
         company.soft_delete()
+        for u in company.users.all():
+            u.soft_delete()
         return Response({"code": "P_004", "detail": "Uzņēmums ir dzēsts (soft-delete)."},
                         status=status.HTTP_200_OK)
 

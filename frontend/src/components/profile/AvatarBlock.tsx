@@ -14,7 +14,7 @@ export default function AvatarBlock({
   onUpload: (file?: File) => void;
 }) {
   const fileInput = useRef<HTMLInputElement | null>(null);
-  const apiBase = import.meta.env.VITE_API_URL ?? "http://localhost:8000/api";
+  const apiBase = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
   const mediaHost = apiBase.replace(/\/api\/?$/, "");
   const resolvedAvatar =
     avatarUrl && !avatarUrl.startsWith("http") ? `${mediaHost}${avatarUrl}` : avatarUrl || null;

@@ -67,6 +67,7 @@
   height: 46px;
   border-radius: 10px;
   outline: none;
+  font-family: "Roboto", system-ui, -apple-system, sans-serif;
 
   border-left: 3px solid var(--blue);
   border-right: 3px solid var(--blue);
@@ -95,6 +96,15 @@
 .f-input:disabled{
   opacity: .75;
   cursor: not-allowed;
+}
+
+.f-textarea{
+  min-height: 120px;
+  resize: vertical;
+  padding-top: 12px;
+  padding-bottom: 12px;
+  line-height: 1.4;
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
 }
 
 .f-ic{

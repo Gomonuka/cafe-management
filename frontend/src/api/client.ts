@@ -1,7 +1,8 @@
 import axios from "axios";
 import type { AxiosError, AxiosRequestConfig } from "axios";
 
-const BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000/api";
+// Backend URL bez papildu /api prefiksa (Django ceļi sākas ar /accounts/, /companies/ u.c.)
+const BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
 export const api = axios.create({
   baseURL: BASE_URL.replace(/\/$/, ""),

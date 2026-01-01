@@ -64,7 +64,6 @@ export async function createCompany(data: FormData) {
     url: "/companies/me/create/",
     method: "POST",
     data,
-    headers: { "Content-Type": "multipart/form-data" },
   });
 }
 
@@ -73,7 +72,6 @@ export async function updateCompany(data: FormData) {
     url: "/companies/me/update/",
     method: "PUT",
     data,
-    headers: { "Content-Type": "multipart/form-data" },
   });
 }
 
