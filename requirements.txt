@@ -6,3 +6,5 @@ pillow>=10.0
 django-cors-headers>=4.4
 python-dotenv>=1.0
 requests
+pytest>=8.3
+pytest-django>=4.9
