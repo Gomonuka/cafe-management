@@ -66,7 +66,7 @@ export default function Login() {
         nav("/app/orders");
         break;
       case "company_admin":
-        nav("/app/admin");
+        nav("/app/my-company");
         break;
       case "client":
       default:
