@@ -24,9 +24,8 @@ def set_jwt_cookies(response: Response, refresh: RefreshToken):
 
 
 def clear_jwt_cookies(response: Response):
-    # Django's delete_cookie neņem secure param; samesite pietiek
-    response.delete_cookie(ACCESS_COOKIE, samesite="Lax")
-    response.delete_cookie(REFRESH_COOKIE, samesite="Lax")
+    response.delete_cookie(ACCESS_COOKIE, samesite="Lax", secure=not settings.DEBUG)
+    response.delete_cookie(REFRESH_COOKIE, samesite="Lax", secure=not settings.DEBUG)
 
 
 class EmailLoginView(APIView):
@@ -55,11 +54,11 @@ class RefreshCookieView(APIView):
     def post(self, request):
         refresh_token = request.COOKIES.get(REFRESH_COOKIE)
         if not refresh_token:
-            return Response({"detail": "Refresh tokens nav atrasts."}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response({"detail": "Refresh token missing."}, status=status.HTTP_401_UNAUTHORIZED)
         try:
             refresh = RefreshToken(refresh_token)
         except TokenError:
-            return Response({"detail": "Refresh tokens nav derīgs."}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response({"detail": "Invalid refresh token."}, status=status.HTTP_401_UNAUTHORIZED)
 
         user_id = refresh.payload.get("user_id")
         user = get_user_model().objects.filter(id=user_id, is_active=True).first()
@@ -85,6 +84,6 @@ class LogoutCookieView(APIView):
                 token.blacklist()
             except TokenError:
                 pass
-        resp = Response({"detail": "Izrakstīšanās veiksmīga."}, status=status.HTTP_200_OK)
+        resp = Response({"detail": "Logged out."}, status=status.HTTP_200_OK)
         clear_jwt_cookies(resp)
         return resp

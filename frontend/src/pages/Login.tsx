@@ -16,36 +16,19 @@ export default function Login() {
   const [show, setShow] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const normalizeError = (data: any): string => {
-    if (!data) return "Login failed";
-    if (typeof data === "string") return data;
-    if (typeof data === "object") {
-      // предпочитаем detail, иначе code, иначе распакуем первую пару
-      if (data.detail) return Array.isArray(data.detail) ? data.detail.join(" ") : String(data.detail);
-      if (data.code) return Array.isArray(data.code) ? data.code.join(" ") : String(data.code);
-      const entries = Object.entries(data);
-      if (entries.length) {
-        const [k, v] = entries[0];
-        const val = Array.isArray(v) ? v.join(" ") : String(v);
-        return `${val || k}`;
-      }
-    }
-    return "Login failed";
-  };
-
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
 
     const res = await login({ email, password });
     if (!res.ok) {
-      setError(normalizeError(res.data));
+      setError(res.data?.detail || res.data?.code || "Login failed");
       return;
     }
 
     const me = await fetchMe();
     if (!me.ok) {
-      setError(normalizeError(me.data));
+      nav("/app/companies");
       return;
     }
 
