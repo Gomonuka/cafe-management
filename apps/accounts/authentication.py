@@ -21,9 +21,9 @@ class StrictJWTAuthentication(JWTAuthentication):
         user = super().get_user(validated_token)
 
         if getattr(user, "is_blocked", False):
-            raise AuthenticationFailed("Lietotajs ir blokets.")
+            raise AuthenticationFailed("Lietotājs ir bloķēts.")
 
         if getattr(user, "deleted_at", None) is not None or not user.is_active:
-            raise AuthenticationFailed("Lietotajs ir izdzests vai neaktivs.")
+            raise AuthenticationFailed("Lietotājs ir dzēsts vai neaktīvs.")
 
         return user
