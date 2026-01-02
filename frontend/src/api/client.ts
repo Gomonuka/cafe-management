@@ -37,6 +37,7 @@ export async function request<T = any>(config: Parameters<typeof api.request>[0]
     if (axios.isAxiosError(err) && err.response) {
       return { ok: false, data: err.response.data, status: err.response.status };
     }
-    throw err;
+    // вместо проглатывания — вернуть понятную ошибку, чтобы отрисовать её
+    return { ok: false, data: "Nezināma kļūda.", status: 0 };
   }
 }
