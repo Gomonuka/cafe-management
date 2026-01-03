@@ -16,7 +16,6 @@ export const menuByRole: Record<Role, Array<{ to: string; label: string; icon: a
   ],
   company_admin: [
     { to: "/app/my-company", label: "Mans uzņēmums", icon: FiHome },
-    { to: "/app/companies", label: "Uzņēmumi", icon: FiCoffee },
     { to: "/app/company/orders", label: "Pasūtījumi", icon: FiClipboard },
     { to: "/app/inventory", label: "Noliktava", icon: FiArchive },
     { to: "/app/company/menu", label: "Ēdienkarte", icon: FiCoffee },
@@ -24,7 +23,6 @@ export const menuByRole: Record<Role, Array<{ to: string; label: string; icon: a
     { to: "/app/company/employees", label: "Darbinieki", icon: FiUsers },
   ],
   employee: [
-    { to: "/app/companies", label: "Uzņēmumi", icon: FiCoffee },
     { to: "/app/company/orders", label: "Pasūtījumi", icon: FiClipboard },
     { to: "/app/inventory", label: "Noliktava", icon: FiArchive },
   ],

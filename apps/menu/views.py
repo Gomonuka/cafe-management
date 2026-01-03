@@ -6,7 +6,8 @@ from rest_framework.exceptions import PermissionDenied, NotFound
 
 from apps.accounts.models import User
 from apps.companies.models import Company
-from .models import MenuCategory, Product
+from apps.inventory.models import InventoryItem
+from .models import MenuCategory, Product, RecipeItem
 from .serializers import (
     CategorySerializer,
     CategoryCreateUpdateSerializer,
@@ -16,6 +17,7 @@ from .serializers import (
 )
 from .permissions import IsCompanyAdmin
 from .utils import parse_recipe
+from .services import compute_available_quantities
 
 
 def company_public_available(company_id: int) -> bool:
@@ -47,16 +49,35 @@ class MenuView(APIView):
             categories = MenuCategory.objects.filter(company=company, is_active=True).order_by("name")
             data = []
             for cat in categories:
-                products = Product.objects.filter(company=company, category=cat, is_available=True).order_by("name")
+                products = list(
+                    Product.objects.filter(company=company, category=cat, is_available=True)
+                    .order_by("name")
+                    .prefetch_related("recipe_items__inventory_item")
+                )
+                available_map = compute_available_quantities(products)
+
+                products_payload = []
+                for p in products:
+                    available_qty = available_map.get(p.id, 0)
+                    # Only expose products that can actually be produced now
+                    if available_qty <= 0:
+                        continue
+                    products_payload.append(
+                        {
+                            "id": p.id,
+                            "name": p.name,
+                            "price": str(p.price),
+                            "is_available": p.is_available,
+                            "available_quantity": available_qty,
+                        }
+                    )
+
                 data.append(
                     {
                         "id": cat.id,
                         "name": cat.name,
                         "description": cat.description,
-                        "products": [
-                            {"id": p.id, "name": p.name, "price": str(p.price), "is_available": p.is_available}
-                            for p in products
-                        ],
+                        "products": products_payload,
                     }
                 )
             return Response(MenuPublicSerializer({"categories": data}).data, status=status.HTTP_200_OK)
@@ -66,11 +87,24 @@ class MenuView(APIView):
             raise PermissionDenied("Piekļuve ir atļauta tikai savam uzņēmumam.")
 
         categories = MenuCategory.objects.filter(company=company).order_by("name")
-        products = Product.objects.filter(company=company).order_by("name")
+        products = list(
+            Product.objects.filter(company=company).order_by("name").prefetch_related("recipe_items__inventory_item")
+        )
+        available_map = compute_available_quantities(products)
 
         admin_payload = {
             "categories": [{"id": c.id, "name": c.name} for c in categories],
-            "products": [{"id": p.id, "name": p.name} for p in products],
+            "products": [
+                {
+                    "id": p.id,
+                    "name": p.name,
+                    "price": str(p.price),
+                    "is_available": p.is_available,
+                    "available_quantity": available_map.get(p.id, 0),
+                    "category_id": p.category_id,
+                }
+                for p in products
+            ],
         }
         return Response(MenuAdminSerializer(admin_payload).data, status=status.HTTP_200_OK)
 
@@ -148,7 +182,7 @@ class ProductCreateView(APIView):
         # Parsē recepte no FormData (ja nepieciešams)
         data["recipe"] = parse_recipe(data)
 
-        s = ProductCreateUpdateSerializer(data=data, context={"company": user.company})
+        s = ProductCreateUpdateSerializer(data=data, context={"company": user.company, "allow_empty_recipe": True})
         s.is_valid(raise_exception=True)
         product = s.save()
 
@@ -171,7 +205,12 @@ class ProductUpdateView(APIView):
         data = request.data.copy()
         data["recipe"] = parse_recipe(data)
 
-        s = ProductCreateUpdateSerializer(instance=product, data=data, context={"company": user.company})
+        s = ProductCreateUpdateSerializer(
+            instance=product,
+            data=data,
+            context={"company": user.company, "allow_empty_recipe": True},
+            partial=True,
+        )
         s.is_valid(raise_exception=True)
         s.save()
 
@@ -194,3 +233,75 @@ class ProductDeleteView(APIView):
         product.delete()
         return Response({"code": "P_004", "detail": "Produkts ir dzēsts."},
                         status=status.HTTP_200_OK)
+
+
+class ProductRecipeView(APIView):
+    """
+    MENU_002/003 helper: apskatīt/rediģēt produkta recepti (UA)
+    """
+    permission_classes = [IsAuthenticated, IsCompanyAdmin]
+
+    def get(self, request, product_id: int):
+        user: User = request.user
+        product = Product.objects.filter(id=product_id, company_id=user.company_id).first()
+        if not product:
+            raise NotFound("Produkts nav atrasts.")
+
+        recipe = RecipeItem.objects.filter(product=product).select_related("inventory_item").order_by("id")
+        rows = [
+            {
+                "inventory_item_id": ri.inventory_item_id,
+                "inventory_item_name": ri.inventory_item.name if ri.inventory_item else "",
+                "amount": str(ri.amount),
+            }
+            for ri in recipe
+        ]
+        return Response({"product_id": product.id, "recipe": rows}, status=status.HTTP_200_OK)
+
+    def put(self, request, product_id: int):
+        user: User = request.user
+        product = Product.objects.filter(id=product_id, company_id=user.company_id).first()
+        if not product:
+            raise NotFound("Produkts nav atrasts.")
+
+        payload = request.data.get("recipe")
+        if not isinstance(payload, list):
+            return Response({"detail": "recipe must be list"}, status=status.HTTP_400_BAD_REQUEST)
+
+        cleaned = []
+        for row in payload:
+            inv = row.get("inventory_item_id")
+            amt = row.get("amount")
+            try:
+                inv_id = int(inv)
+                amt_val = float(amt)
+            except (TypeError, ValueError):
+                continue
+            if inv_id <= 0 or amt_val <= 0:
+                continue
+            cleaned.append({"inventory_item_id": inv_id, "amount": amt_val})
+
+        # Validate inventory ownership
+        inv_ids = [r["inventory_item_id"] for r in cleaned]
+        if inv_ids:
+            count = InventoryItem.objects.filter(company_id=user.company_id, id__in=inv_ids).count()
+            if count != len(set(inv_ids)):
+                return Response({"detail": "Recepte satur noliktavas vienības, kas nepieder uzņēmumam."},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+        # Replace recipe
+        RecipeItem.objects.filter(product=product).delete()
+        items = [RecipeItem(product=product, inventory_item_id=r["inventory_item_id"], amount=r["amount"]) for r in cleaned]
+        if items:
+            RecipeItem.objects.bulk_create(items)
+
+        recipe = RecipeItem.objects.filter(product=product).select_related("inventory_item").order_by("id")
+        rows = [
+            {
+                "inventory_item_id": ri.inventory_item_id,
+                "inventory_item_name": ri.inventory_item.name if ri.inventory_item else "",
+                "amount": str(ri.amount),
+            }
+            for ri in recipe
+        ]
+        return Response({"product_id": product.id, "recipe": rows}, status=status.HTTP_200_OK)

@@ -27,11 +27,9 @@ class InventoryListView(APIView):
             raise PermissionDenied("Lietotājam nav uzņēmuma.")
 
         qs = InventoryItem.objects.filter(company_id=user.company_id).order_by("name")
-        if qs.count() == 0:
-            return Response({"code": "P_006", "detail": "Noliktavā nav nevienas vienības."},
-                            status=status.HTTP_200_OK)
-
-        return Response(InventoryListSerializer(qs, many=True).data, status=status.HTTP_200_OK)
+        data = InventoryListSerializer(qs, many=True).data
+        # Always return a list (even empty) so the UI remains stable
+        return Response(data, status=status.HTTP_200_OK)
 
 
 class InventoryCreateView(APIView):
@@ -47,6 +45,10 @@ class InventoryCreateView(APIView):
 
         s = InventoryCreateSerializer(data=request.data)
         s.is_valid(raise_exception=True)
+
+        if InventoryItem.objects.filter(company_id=user.company_id, name__iexact=s.validated_data["name"]).exists():
+            return Response({"detail": "Name already exists in inventory."},
+                            status=status.HTTP_400_BAD_REQUEST)
 
         InventoryItem.objects.create(company_id=user.company_id, **s.validated_data)
         return Response({"code": "P_001", "detail": "Noliktavas vienība ir izveidota."},
@@ -72,6 +74,14 @@ class InventoryUpdateView(APIView):
 
         # Nosaka atļautos laukus pēc lomas
         if user.role == User.Role.COMPANY_ADMIN:
+            incoming_name = request.data.get("name")
+            if incoming_name and InventoryItem.objects.filter(
+                company_id=user.company_id, name__iexact=incoming_name
+            ).exclude(id=item_id).exists():
+                return Response(
+                    {"detail": "Name already exists in inventory."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             s = InventoryUpdateAdminSerializer(instance=item, data=request.data)
         else:
             # Darbiniekam atļauts mainīt tikai daudzumu

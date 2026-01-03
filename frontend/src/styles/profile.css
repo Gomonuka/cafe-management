@@ -244,6 +244,111 @@
   justify-content:center;
   align-items:center;
 }
+.stats-cards{
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+.stats-card{
+  border: 1px solid #d8e2f2;
+  box-shadow: 0 12px 22px rgba(30,115,216,0.08);
+  border-radius: 14px;
+  padding: 12px;
+  text-align:center;
+  display:flex;
+  flex-direction:column;
+  gap: 6px;
+  justify-content:center;
+}
+.stats-card-title{
+  color:#1e73d8;
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+.stats-card-value{
+  font-weight: 900;
+  font-size: 26px;
+  color:#0f172a;
+  line-height: 1.2;
+}
+.stats-card-value.small{ font-size: 18px; }
+.stats-card-sub{ color:#6b7280; font-weight: 700; }
+.stats-block{
+  border: 1px solid #d8e2f2;
+  box-shadow: 0 12px 22px rgba(30,115,216,0.08);
+  border-radius: 14px;
+  padding: 12px;
+  margin-top: 12px;
+}
+.stats-block-title{
+  color:#1e73d8;
+  font-weight:900;
+  margin-bottom: 10px;
+}
+.stats-row{
+  display:flex;
+  justify-content:space-between;
+  padding: 6px 0;
+  font-weight: 700;
+  color:#0f172a;
+  border-bottom: 1px dashed #d8e2f2;
+}
+.stats-row:last-child{ border-bottom: none; }
+.stats-empty{
+  padding: 10px;
+  color:#6b7280;
+  font-weight: 600;
+}
+.stats-chart{
+  display:flex;
+  gap: 12px;
+  align-items:flex-end;
+  overflow-x:auto;
+  padding: 6px 0;
+}
+.stats-chart-wrapper{
+  display:grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: 1fr auto;
+  gap: 10px;
+  align-items:end;
+}
+.stats-chart-y{
+  writing-mode: vertical-rl;
+  transform: rotate(270deg) scale(1.4);
+  font-weight: 900;
+  color:#1e73d8;
+  padding-left: 10px;
+  font-size: 14px;
+}
+.stats-chart-x{
+  grid-column: 2 / 3;
+  text-align:center;
+  font-weight: 800;
+  color:#1e73d8;
+}
+.stats-bar{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap: 6px;
+  min-width: 80px;
+}
+.stats-bar-fill{
+  width: 32px;
+  border-radius: 10px 10px 4px 4px;
+  background: linear-gradient(180deg, #69a9ff, #1e73d8);
+  box-shadow: 0 10px 18px rgba(29,130,216,0.18);
+}
+.stats-bar-label{
+  font-size: 12px;
+  color:#6b7280;
+}
+.stats-bar-value{
+  font-weight: 800;
+  color:#0f172a;
+  font-size: 13px;
+}
 .icon-btn {
   border: none;
   width: 46px;
@@ -251,24 +356,98 @@
   padding: 10px;
   border-radius: 14px;
   cursor: pointer;
-  color: #1e73d8;
-  background: #e8f0ff;
+  color: #fff;
+  background: linear-gradient(135deg, #69a9ff, #1e73d8);
   display:flex;
   align-items:center;
   justify-content:center;
-  box-shadow: inset 0 -2px 0 rgba(0,0,0,0.05);
+  box-shadow: 0 12px 22px rgba(29,130,216,0.22);
+  transition: transform .1s ease, box-shadow .12s ease;
 }
+.icon-btn:hover{ transform: translateY(-1px); box-shadow: 0 14px 26px rgba(29,130,216,0.26); }
 .icon-btn svg{
   width: 22px;
   height: 22px;
 }
 .icon-btn.danger {
-  background: #ffe0e0;
-  color: #d9534f;
+  background: linear-gradient(135deg, #ff9a9a, #e23b3b);
+  color: #fff;
+  box-shadow: 0 12px 22px rgba(226,59,59,0.22);
 }
 .icon-btn.amber {
-  background: #ffedc7;
-  color: #d99300;
+  background: linear-gradient(135deg, #ffd699, #f29c1f);
+  color: #fff;
+  box-shadow: 0 12px 22px rgba(242,156,31,0.22);
+}
+
+.link-btn{
+  border: none;
+  background: transparent;
+  color: #1e73d8;
+  font-weight: 900;
+  font-size: 18px;
+  cursor:pointer;
+}
+
+.company-detail-grid{
+  display:grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 14px;
+  align-items:stretch;
+}
+.company-detail-card.logo{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.company-detail-logo-img{
+  width: 100%;
+  max-width: 320px;
+  height: 240px;
+  object-fit: cover;
+  border-radius: 18px;
+  box-shadow: inset 0 0 0 1px #d8e2f2;
+}
+.company-detail-logo-placeholder{
+  width: 100%;
+  max-width: 320px;
+  height: 240px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #eef4ff, #dce9ff);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap: 8px;
+  color:#1e73d8;
+  font-weight: 900;
+  font-size: 16px;
+  box-shadow: inset 0 0 0 1px #d8e2f2;
+}
+.company-detail-card.info{
+  display:flex;
+  flex-direction:column;
+  gap: 10px;
+}
+.company-detail-card.desc{
+  margin-top: 12px;
+}
+.company-detail-title{
+  color:#1e73d8;
+  font-weight: 900;
+  font-size: 16px;
+}
+.company-detail-line{
+  display:flex;
+  align-items:center;
+  gap: 8px;
+  font-weight: 700;
+  color:#0f172a;
+}
+.company-detail-text{
+  margin-top: 6px;
+  font-size: 14px;
+  color:#0f172a;
 }
 
 @media (max-width: 768px){
@@ -297,24 +476,76 @@
 
 .employees-layout {
   display: grid;
-  grid-template-columns: 320px 1fr;
+  grid-template-columns: minmax(280px, 360px) 1fr;
   gap: 16px;
+  align-items:flex-start;
 }
 
 .employees-list {
-  padding: 12px;
+  padding: 14px;
+  box-shadow: 0 12px 22px rgba(0,0,0,0.06);
 }
 .employees-header,
 .employees-row {
   display: grid;
-  grid-template-columns: 40px 1fr 120px;
+  grid-template-columns: 50px 1fr 120px;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
+  gap: 10px;
+  margin-bottom: 10px;
 }
 .row-actions {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
+}
+.employees-header{
+  font-weight: 900;
+  color:#1e73d8;
+}
+.employees-row{
+  padding: 8px;
+  border-radius: 12px;
+  border: 1px solid #d8e2f2;
+  background: #f7f9ff;
+  box-shadow: 0 10px 18px rgba(30,115,216,0.06);
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.employees-row:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 14px 24px rgba(30,115,216,0.12);
+}
+.employees-row input{
+  width: 100%;
+}
+.employees-add{
+  width: 100%;
+  display:flex;
+  justify-content:flex-end;
+}
+.employees-add .btn{
+  width: 100%;
+  max-width: 240px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+@media (max-width: 1024px){
+  .employees-layout{
+    grid-template-columns: 1fr;
+  }
+  .employees-list{
+    order: 1;
+  }
+  .profile-card{
+    order: 2;
+    width: 100%;
+  }
+  .employees-header, .employees-row{
+    grid-template-columns: 40px 1fr 100px;
+  }
+  .employees-add .btn{
+    max-width: 100%;
+  }
 }
 

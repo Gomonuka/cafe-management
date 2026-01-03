@@ -9,6 +9,7 @@ export type MenuCategoryPublic = {
     name: string;
     price: string;
     is_available: boolean;
+    available_quantity?: number;
   }>;
 };
 
@@ -25,7 +26,10 @@ export async function fetchMenu(companyId: number) {
 
 // Admin endpoints
 export async function fetchMenuAdmin(companyId: number) {
-  return request<{ categories: Array<{ id: number; name: string }>; products: Array<{ id: number; name: string }> }>({
+  return request<{
+    categories: Array<{ id: number; name: string }>;
+    products: Array<{ id: number; name: string; price: string; is_available: boolean; available_quantity?: number; category_id: number }>;
+  }>({
     url: `/menu/${companyId}/`,
     method: "GET",
   });
@@ -70,6 +74,9 @@ export async function createProduct(payload: ProductPayload) {
   fd.append("is_available", String(payload.is_available));
   fd.append("price", payload.price);
   fd.append("photo", payload.photo);
+  // Primary: send recipe as JSON string
+  fd.append("recipe", JSON.stringify(payload.recipe));
+  // Fallback: also send flat keys to satisfy parsers that ignore JSON field in multipart
   payload.recipe.forEach((r, idx) => {
     fd.append(`recipe[${idx}][inventory_item_id]`, String(r.inventory_item_id));
     fd.append(`recipe[${idx}][amount]`, String(r.amount));
@@ -88,6 +95,7 @@ export async function updateProduct(product_id: number, payload: Omit<ProductPay
   fd.append("is_available", String(payload.is_available));
   fd.append("price", payload.price);
   if (payload.photo) fd.append("photo", payload.photo);
+  fd.append("recipe", JSON.stringify(payload.recipe));
   payload.recipe.forEach((r, idx) => {
     fd.append(`recipe[${idx}][inventory_item_id]`, String(r.inventory_item_id));
     fd.append(`recipe[${idx}][amount]`, String(r.amount));
@@ -103,5 +111,20 @@ export async function deleteProduct(product_id: number) {
   return request({
     url: `/menu/products/${product_id}/delete/`,
     method: "POST",
+  });
+}
+
+export async function fetchProductRecipe(productId: number) {
+  return request<{ product_id: number; recipe: Array<{ inventory_item_id: number; inventory_item_name: string; amount: string }> }>({
+    url: `/menu/products/${productId}/recipe/`,
+    method: "GET",
+  });
+}
+
+export async function updateProductRecipe(product_id: number, recipe: Array<{ inventory_item_id: number; amount: number }>) {
+  return request({
+    url: `/menu/products/${product_id}/recipe/`,
+    method: "PUT",
+    data: { recipe },
   });
 }

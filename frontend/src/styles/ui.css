@@ -58,7 +58,7 @@
 .btn-ic svg{ width:18px; height:18px; }
 
 .f{ display:flex; flex-direction:column; gap: 6px; margin-top: 10px; }
-.f-label{ color: var(--blue); font-weight: 900; font-size: 13px; text-align:left; }
+.f-label{ color: rgb(30, 115, 216); font-weight: 700; font-size: 12px; text-align:left; }
 
 .f-field{ position: relative; }
 

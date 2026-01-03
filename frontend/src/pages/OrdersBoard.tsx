@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
@@ -41,30 +41,34 @@ function OrderCard({
   onDragStart: (payload: DragPayload) => void;
 }) {
   return (
-    <Card
+    <div
+      className="card order-card"
       draggable
       onDragStart={(e) => {
         onDragStart({ id: order.id, status: order.status });
         e.dataTransfer.setData("text/plain", String(order.id));
       }}
     >
-      <div style={{ fontWeight: 800, color: "#1e73d8" }}>#{order.id}</div>
-      <div style={{ fontSize: 13, color: "#4b5563" }}>{new Date(order.created_at).toLocaleString()}</div>
-      <div style={{ marginTop: 6, fontWeight: 700 }}>Kopsumma: {order.total_amount} €</div>
-      <div className="badge gray" style={{ marginTop: 6 }}>
-        {order.order_type === "ON" ? "Uz vietas" : "Lidznesanai"}
+      <div className="order-card-top">
+        <div className="order-id">#{order.id}</div>
+        <div className="order-date">{new Date(order.created_at).toLocaleString()}</div>
       </div>
-      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+      <div className="order-total">Kopsumma: {order.total_amount} €</div>
+      <div className="order-tags">
+        <span className="badge blue">{statusLabel[order.status]}</span>
+        <span className="badge gray">{order.order_type === "ON" ? "Uz vietas" : "Līdzi ņemšanai"}</span>
+      </div>
+      <div className="order-actions">
         {nextStatus[order.status] ? (
-          <Button variant="primary" onClick={onAdvance}>
+          <Button variant="primary" onClick={onAdvance} className="order-btn">
             {statusLabel[nextStatus[order.status] as CompanyOrder["status"]]}
           </Button>
         ) : null}
-        <Button variant="ghost" onClick={onView}>
-          Detalas
+        <Button variant="ghost" onClick={onView} className="order-btn ghost">
+          Detaļas
         </Button>
       </div>
-    </Card>
+    </div>
   );
 }
 
@@ -78,22 +82,36 @@ export default function OrdersBoard() {
   const [loading, setLoading] = useState<boolean>(true);
   const [dragItem, setDragItem] = useState<DragPayload | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
+  const [doneSeenAt, setDoneSeenAt] = useState<Record<number, number>>({});
+  const [nowTs, setNowTs] = useState<number>(Date.now());
 
   const load = async () => {
     setLoading(true);
     setError(null);
     const res = await fetchCompanyOrders();
     if (res.ok) {
+      const newMap = { ...doneSeenAt };
+      res.data.active
+        .filter((o) => o.status === "DON")
+        .forEach((o) => {
+          if (!newMap[o.id]) newMap[o.id] = Date.now();
+        });
+      setDoneSeenAt(newMap);
       setActive(res.data.active);
       setFinished(res.data.finished);
     } else {
-      setError(res.data?.detail || "Neizdevas ieladet pasutijumus.");
+      setError(res.data?.detail || "Neizdevās ielādēt pasūtījumus.");
     }
     setLoading(false);
   };
 
   useEffect(() => {
     void load();
+  }, []);
+
+  useEffect(() => {
+    const t = setInterval(() => setNowTs(Date.now()), 1000);
+    return () => clearInterval(t);
   }, []);
 
   const advance = async (orderId: number, current: CompanyOrder["status"]) => {
@@ -134,7 +152,7 @@ export default function OrdersBoard() {
         <div style={{ fontWeight: 800, color: "#1e73d8", display: "flex", alignItems: "center", gap: 6 }}>
           {title} <span className="badge gray">{filtered.length}</span>
         </div>
-        {filtered.length === 0 && <div className="pill gray">Nav pasutijumu</div>}
+        {filtered.length === 0 && <div className="pill gray">Nav pasūtījumu</div>}
         {filtered.map((o) => (
           <OrderCard
             key={o.id}
@@ -151,28 +169,61 @@ export default function OrdersBoard() {
   const isStaff = user?.role === "company_admin" || user?.role === "employee";
   if (!isStaff) return <div style={{ padding: 12 }}>Piekļuve ir liegta.</div>;
 
+  const tabButtonBase = { minWidth: 140 };
+  const tabButtonActive = { ...tabButtonBase, boxShadow: "0 14px 26px rgba(29,130,240,0.35)" };
+  const tabButtonInactive = {
+    ...tabButtonBase,
+    background: "#fff",
+    color: "var(--blue)",
+    border: "2px solid var(--blue)",
+    boxShadow: "none",
+  };
+
   return (
     <div className="profile-wrap" style={{ alignItems: "stretch" }}>
-      <div className="page-heading">Pasutijumi</div>
+      <div className="page-heading">Pasūtījumi</div>
       <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
-        <Button variant={tab === "active" ? "primary" : "ghost"} onClick={() => setTab("active")}>
-          Aktivie
+        <Button
+          variant={tab === "active" ? "primary" : "ghost"}
+          onClick={() => setTab("active")}
+          style={tab === "active" ? tabButtonActive : tabButtonInactive}
+        >
+          Aktīvie
         </Button>
-        <Button variant={tab === "finished" ? "primary" : "ghost"} onClick={() => setTab("finished")}>
+        <Button
+          variant={tab === "finished" ? "primary" : "ghost"}
+          onClick={() => setTab("finished")}
+          style={tab === "finished" ? tabButtonActive : tabButtonInactive}
+        >
           Pabeigtie
-        </Button>
-        <Button variant="ghost" onClick={() => nav("/app/company/orders/stats")}>
-          Statistika
         </Button>
       </div>
       {error && <div style={{ color: "red", padding: 12 }}>{error}</div>}
-      {loading && <div style={{ padding: 12 }}>Ielade...</div>}
+      {loading && <div style={{ padding: 12 }}>Ielāde...</div>}
       {!loading && tab === "active" && (
         <div className="kanban-grid">
-          {renderColumn("Jauns", "NEW", active)}
-          {renderColumn("Tiek gatavots", "INP", active)}
-          {renderColumn("Gatavs", "RDY", active)}
-          {renderColumn("Pabeigts", "DON", active)}
+          {renderColumn(
+            "Jauns",
+            "NEW",
+            active.filter((o) => o.status === "NEW")
+          )}
+          {renderColumn(
+            "Tiek gatavots",
+            "INP",
+            active.filter((o) => o.status === "INP")
+          )}
+          {renderColumn(
+            "Gatavs",
+            "RDY",
+            active.filter((o) => o.status === "RDY")
+          )}
+          {renderColumn(
+            "Pabeigts",
+            "DON",
+            active.filter(
+              (o) => o.status === "DON" && nowTs - (doneSeenAt[o.id] ?? nowTs) < 60_000
+            )
+          )}
         </div>
       )}
       {!loading && tab === "finished" && (

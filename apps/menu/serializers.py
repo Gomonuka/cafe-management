@@ -61,7 +61,7 @@ class CategoryCreateUpdateSerializer(serializers.ModelSerializer):
 
 class ProductCreateUpdateSerializer(serializers.ModelSerializer):
     # Produkta izveide/rediģēšana ar recepti
-    recipe = RecipeItemInputSerializer(many=True, write_only=True)
+    recipe = RecipeItemInputSerializer(many=True, write_only=True, required=False, allow_empty=True)
 
     class Meta:
         model = Product
@@ -83,18 +83,30 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
         return value
 
     def validate_recipe(self, value):
-        if not value or len(value) < 1:
-            raise serializers.ValidationError("Recepte ir obligāta un jānorāda vismaz 1 sastāvdaļa.")
+        # Recepte var būt tukša izveides brīdī
+        if not value:
+            return []
         return value
 
     def validate(self, attrs):
         company = self.context["company"]
         recipe = attrs.get("recipe", [])
-        ids = [x["inventory_item_id"] for x in recipe]
+        cleaned = []
+        for row in recipe:
+            inv = row.get("inventory_item_id")
+            amt = row.get("amount")
+            if inv is None or amt is None:
+                continue
+            cleaned.append(row)
 
-        inv_qs = InventoryItem.objects.filter(company=company, id__in=ids)
-        if inv_qs.count() != len(set(ids)):
-            raise serializers.ValidationError("Recepte satur noliktavas sastāvdaļu, kas nepieder uzņēmumam.")
+        attrs["recipe"] = cleaned
+
+        ids = [x["inventory_item_id"] for x in cleaned]
+
+        if ids:
+            inv_qs = InventoryItem.objects.filter(company=company, id__in=ids)
+            if inv_qs.count() != len(set(ids)):
+                raise serializers.ValidationError("Recepte satur noliktavas sastāvdaļu, kas nepieder uzņēmumam.")
 
         category = attrs.get("category")
         if category and category.company_id != company.id:
@@ -102,16 +114,17 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
-        recipe_data = validated_data.pop("recipe")
+        recipe_data = validated_data.pop("recipe", [])
         company = self.context["company"]
 
         product = Product.objects.create(company=company, **validated_data)
 
-        items = [
-            RecipeItem(product=product, inventory_item_id=row["inventory_item_id"], amount=row["amount"])
-            for row in recipe_data
-        ]
-        RecipeItem.objects.bulk_create(items)
+        if recipe_data:
+            items = [
+                RecipeItem(product=product, inventory_item_id=row["inventory_item_id"], amount=row["amount"])
+                for row in recipe_data
+            ]
+            RecipeItem.objects.bulk_create(items)
         return product
 
     def update(self, instance, validated_data):

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { FiEdit2, FiTrash2 } from "react-icons/fi";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
@@ -19,7 +20,12 @@ export default function Inventory() {
 
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [selected, setSelected] = useState<InventoryItem | null>(null);
-  const [form, setForm] = useState<{ name: string; quantity: string; unit: string }>({
+  const [createForm, setCreateForm] = useState<{ name: string; quantity: string; unit: string }>({
+    name: "",
+    quantity: "",
+    unit: "",
+  });
+  const [editForm, setEditForm] = useState<{ name: string; quantity: string; unit: string }>({
     name: "",
     quantity: "",
     unit: "",
@@ -29,19 +35,20 @@ export default function Inventory() {
 
   const load = async () => {
     setLoading(true);
+    setError(null);
     const res = await fetchInventory();
-    if (res.ok) {
+    if (res.ok && Array.isArray(res.data)) {
       setItems(res.data);
       if (res.data.length > 0) {
         setSelected(res.data[0]);
-        setForm({
+        setEditForm({
           name: res.data[0].name,
           quantity: res.data[0].quantity.toString(),
           unit: res.data[0].unit,
         });
       }
     } else {
-      setError(res.data?.detail || "Neizdevas ieladet noliktavu");
+      setError(res.data?.detail || "Neizdevās ielādēt noliktavu");
     }
     setLoading(false);
   };
@@ -52,29 +59,32 @@ export default function Inventory() {
 
   const onSelect = (item: InventoryItem) => {
     setSelected(item);
-    setForm({ name: item.name, quantity: item.quantity.toString(), unit: item.unit });
+    setEditForm({ name: item.name, quantity: item.quantity.toString(), unit: item.unit });
   };
 
   const onCreate = async () => {
     if (!isAdmin) return;
+    setError(null);
     const res = await createInventoryItem({
-      name: form.name,
-      quantity: Number(form.quantity),
-      unit: form.unit,
+      name: createForm.name,
+      quantity: Number(createForm.quantity),
+      unit: createForm.unit,
     });
     if (!res.ok) {
       setError(res.data?.detail || JSON.stringify(res.data));
       return;
     }
+    setCreateForm({ name: "", quantity: "", unit: "" });
     await load();
   };
 
   const onUpdate = async () => {
     if (!selected) return;
-    const payload: any = { quantity: Number(form.quantity) };
+    setError(null);
+    const payload: any = { quantity: Number(editForm.quantity) };
     if (isAdmin) {
-      payload.name = form.name;
-      payload.unit = form.unit;
+      payload.name = editForm.name;
+      payload.unit = editForm.unit;
     }
     const res = await updateInventoryItem(selected.id, payload);
     if (!res.ok) {
@@ -91,7 +101,7 @@ export default function Inventory() {
   };
 
   const canEdit = isAdmin || isEmployee;
-  const title = isAdmin ? "Noliktavas vienības (UA)" : "Noliktavas vienības";
+  const title = "Noliktavas vienības";
 
   const list = useMemo(() => items, [items]);
 
@@ -101,34 +111,47 @@ export default function Inventory() {
       {error && <div style={{ color: "red", padding: 12 }}>{error}</div>}
       {loading && <div style={{ padding: 12 }}>Ielāde...</div>}
 
-      <Card>
+      <Card className="inventory-shell">
         <div className="inventory-head">
           <div>ID</div>
           <div>Nosaukums</div>
           <div>Daudzums</div>
-          <div>Darbības</div>
+          <div className="inventory-action-head">
+            <span>Rediģēt</span>
+            <span>Dzēst</span>
+          </div>
         </div>
         <div className="inventory-list">
-          {list.length === 0 && <div>P_006: Noliktavā nav vienību.</div>}
+          {list.length === 0 && <div className="pill gray">P_006: Noliktavā nav vienību.</div>}
           {list.map((it, idx) => (
             <div
               key={it.id}
               className={`inventory-row ${selected?.id === it.id ? "active" : ""}`}
               onClick={() => onSelect(it)}
             >
-              <div>{idx + 1}.</div>
+              <div className="inventory-id">{idx + 1}.</div>
               <input value={it.name} disabled />
               <div className="inventory-qty">
                 <input value={it.quantity} disabled />
                 <span>{it.unit}</span>
               </div>
               <div className="inventory-actions">
-                <Button variant="ghost" onClick={() => onSelect(it)}>
-                  Rediģēt
+                <Button
+                  variant="ghost"
+                  onClick={() => onSelect(it)}
+                  className="icon-btn icon-edit"
+                  aria-label="Rediģēt"
+                >
+                  <FiEdit2 />
                 </Button>
                 {isAdmin && (
-                  <Button variant="ghost" onClick={() => onDelete(it.id)}>
-                    Dzēst
+                  <Button
+                    variant="ghost"
+                    onClick={() => onDelete(it.id)}
+                    className="icon-btn icon-delete"
+                    aria-label="Dzēst"
+                  >
+                    <FiTrash2 />
                   </Button>
                 )}
               </div>
@@ -137,29 +160,50 @@ export default function Inventory() {
         </div>
       </Card>
 
-      {canEdit && (
-        <Card style={{ marginTop: 12 }}>
-          <div className="block-title">{isAdmin ? "Pievienot / Rediģēt vienību" : "Rediģēt atlikumu"}</div>
+      {isAdmin && (
+        <Card style={{ marginTop: 12 }} className="inventory-shell">
+          <div className="block-title">Pievienot jaunu vienību</div>
           <div className="inventory-form">
-            <Input label="Nosaukums" value={form.name} onChange={(v) => setForm((p) => ({ ...p, name: v }))} disabled={!isAdmin} />
+            <Input label="Nosaukums" value={createForm.name} onChange={(v) => setCreateForm((p) => ({ ...p, name: v }))} />
             <Input
               label="Daudzums"
-              value={form.quantity}
-              onChange={(v) => setForm((p) => ({ ...p, quantity: v }))}
+              value={createForm.quantity}
+              onChange={(v) => setCreateForm((p) => ({ ...p, quantity: v }))}
+              placeholder="0"
+            />
+            <Input label="Mērvienība" value={createForm.unit} onChange={(v) => setCreateForm((p) => ({ ...p, unit: v }))} />
+            <div className="inventory-form-actions">
+              <Button variant="primary" onClick={onCreate}>
+                Pievienot vienību
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {canEdit && selected && (
+        <Card style={{ marginTop: 12 }} className="inventory-shell">
+          <div className="block-title">{isAdmin ? "Rediģēt vienību" : "Rediģēt atlikumu"}</div>
+          <div className="inventory-form">
+            <Input
+              label="Nosaukums"
+              value={editForm.name}
+              onChange={(v) => setEditForm((p) => ({ ...p, name: v }))}
+              disabled={!isAdmin}
+            />
+            <Input
+              label="Daudzums"
+              value={editForm.quantity}
+              onChange={(v) => setEditForm((p) => ({ ...p, quantity: v }))}
               placeholder="0"
             />
             <Input
               label="Mērvienība"
-              value={form.unit}
-              onChange={(v) => setForm((p) => ({ ...p, unit: v }))}
+              value={editForm.unit}
+              onChange={(v) => setEditForm((p) => ({ ...p, unit: v }))}
               disabled={!isAdmin}
             />
             <div className="inventory-form-actions">
-              {isAdmin && (
-                <Button variant="primary" onClick={onCreate}>
-                  Pievienot vienību
-                </Button>
-              )}
               <Button variant="primary" onClick={onUpdate}>
                 Atjaunot informāciju
               </Button>

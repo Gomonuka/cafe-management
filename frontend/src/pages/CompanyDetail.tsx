@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { FiMapPin, FiPhone, FiMail } from "react-icons/fi";
+import { FiMapPin, FiPhone, FiMail, FiImage } from "react-icons/fi";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import { getCompanyDetail, type CompanyDetail } from "../api/companies";
-
-const weekdayLabels = ["Pr-Pk", "Se", "Sv", "", "", "", ""];
+import "../styles/profile.css";
 
 export default function CompanyDetailPage() {
   const { id } = useParams();
@@ -17,51 +16,70 @@ export default function CompanyDetailPage() {
     if (!id) return;
     getCompanyDetail(Number(id)).then((res) => {
       if (res.ok) setCompany(res.data);
-      else setError(res.data?.detail || "Neizdevās ielādēt uzņēmumu");
+      else setError(res.data?.detail || "Neizdevās ielādēt uzņēmumu.");
     });
   }, [id]);
 
+  const logoNode = (c: CompanyDetail) => {
+    if (c.logo) {
+      return <img src={c.logo} alt={c.name} className="company-detail-logo-img" />;
+    }
+    const initials = c.name
+      .split(" ")
+      .filter(Boolean)
+      .map((w) => w[0]?.toUpperCase())
+      .slice(0, 2)
+      .join("");
+    return (
+      <div className="company-detail-logo-placeholder">
+        <FiImage size={32} />
+        <span>{initials || "?"}</span>
+      </div>
+    );
+  };
+
   return (
     <div className="profile-wrap" style={{ alignItems: "stretch" }}>
-      <div className="profile-title" style={{ textAlign: "left" }}>
-        <button onClick={() => nav(-1)} style={{ marginRight: 8 }}>←</button>
+      <div className="profile-title" style={{ textAlign: "left", display: "flex", alignItems: "center", gap: 8 }}>
+        <button className="link-btn" onClick={() => nav(-1)} aria-label="Atpakaļ">
+          ←
+        </button>
         {company ? company.name : "Uzņēmums"}
       </div>
 
       {error && <div style={{ color: "red", padding: 12 }}>{error}</div>}
       {!company && !error && <div style={{ padding: 12 }}>Ielāde...</div>}
+
       {company && (
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16 }}>
-          <Card>
-            <div style={{ fontWeight: 700, color: "#1e73d8", marginBottom: 10 }}>Apraksts</div>
-            <div style={{ whiteSpace: "pre-wrap" }}>{company.description || "Nav apraksta"}</div>
+        <>
+          <div className="company-detail-grid">
+            <Card className="company-detail-card logo">
+              {logoNode(company)}
+            </Card>
+            <Card className="company-detail-card info">
+              <div className="company-detail-title">Pamatinformācija</div>
+              <div className="company-detail-line">
+                <FiMapPin /> {company.address_line}, {company.city}, {company.country}
+              </div>
+              <div className="company-detail-line">
+                <FiPhone /> {company.phone || "Nav norādīts"}
+              </div>
+              <div className="company-detail-line">
+                <FiMail /> {company.email || "Nav norādīts"}
+              </div>
+              <Button variant="primary" className="btn-full" onClick={() => nav(`/app/companies/${company.id}/menu`)}>
+                Skatīt ēdienkarti
+              </Button>
+            </Card>
+          </div>
 
-            <div style={{ marginTop: 16, fontWeight: 700, color: "#1e73d8" }}>Darba laiks</div>
-            <ul style={{ listStyle: "none", padding: 0, marginTop: 6 }}>
-              {company.working_hours.map((wh) => (
-                <li key={wh.weekday}>
-                  {wh.from_time} - {wh.to_time}
-                </li>
-              ))}
-            </ul>
+          <Card className="company-detail-card desc">
+            <div className="company-detail-title">Apraksts</div>
+            <div className="company-detail-text">
+              {company.description || "Nav apraksta"}
+            </div>
           </Card>
-
-          <Card>
-            <div style={{ fontWeight: 700, color: "#1e73d8", marginBottom: 10 }}>Pamatinformācija</div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-              <FiMapPin /> {company.address_line}, {company.city}, {company.country}
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-              <FiPhone /> {company.phone}
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-              <FiMail /> {company.email}
-            </div>
-            <Button variant="primary" onClick={() => nav(`/app/companies/${company.id}/menu`)}>
-              Skatīt ēdienkarti
-            </Button>
-          </Card>
-        </div>
+        </>
       )}
     </div>
   );

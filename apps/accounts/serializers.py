@@ -184,11 +184,13 @@ class PasswordResetRequestSerializer(serializers.Serializer):
 
     def validate_email(self, value):
         email = value.lower().strip()
-        user = User.objects.all_with_deleted().filter(email=email, deleted_at__isnull=True, is_active=True).first()
+        user = User.objects.all_with_deleted().filter(email=email).first()
         if not user:
-            raise serializers.ValidationError({"code": "P_008", "detail": "Lietotajs ar noradito e-pastu nav atrasts."})
+            raise serializers.ValidationError({"code": "P_008", "detail": "Lietotājs ar norādīto e-pastu nav atrasts."})
+        if user.deleted_at is not None or not user.is_active:
+            raise serializers.ValidationError({"code": "P_008", "detail": "Lietotājs ir dzēsts vai neaktīvs."})
         if user.is_blocked:
-            raise serializers.ValidationError({"code": "P_018", "detail": "Lietotaja profils ir blokets."})
+            raise serializers.ValidationError({"code": "P_018", "detail": "Lietotāja profils ir bloķēts."})
         if not user.secret_question or not user.secret_answer:
             raise serializers.ValidationError({"detail": "Slepenais jautajums nav iestatits."})
         self.context["user"] = user

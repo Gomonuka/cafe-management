@@ -5,10 +5,10 @@ from apps.accounts.models import User
 
 
 class EmployeeListSerializer(serializers.ModelSerializer):
-    # USER_010: darbinieku saraksts (ID + username)
+    # USER_010: darbinieku saraksts ar pamatdatiem
     class Meta:
         model = User
-        fields = ["id", "username"]
+        fields = ["id", "username", "first_name", "last_name", "email", "avatar"]
 
 
 class EmployeeCreateSerializer(serializers.ModelSerializer):

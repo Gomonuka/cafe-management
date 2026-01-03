@@ -11,10 +11,12 @@ class EmailTokenObtainPairSerializer(serializers.Serializer):
         email = attrs["email"].lower().strip()
         password = attrs["password"]
 
-        # 1) Pārbauda, vai lietotājs eksistē (P_008)
+        # 1) Pārbauda, vai lietotājs eksistē (P_008) un nav dzēsts/neaktīvs
         user = User.objects.all_with_deleted().filter(email=email).first()
-        if not user or user.deleted_at is not None or not user.is_active:
+        if not user:
             raise serializers.ValidationError({"code": "P_008", "detail": "Lietotājs ar norādīto e-pastu nav atrasts."})
+        if user.deleted_at is not None or not user.is_active:
+            raise serializers.ValidationError({"code": "P_008", "detail": "Lietotājs ir dzēsts vai neaktīvs."})
 
         # 2) Pārbauda, vai konts nav bloķēts
         if user.is_blocked:

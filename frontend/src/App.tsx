@@ -60,8 +60,8 @@ export default function App() {
             <Route path="/app/admin/companies" element={<AdminCompanies />} />
           </Route>
 
-          {/* Companies browsing (not for system admins) */}
-          <Route element={<RequireRoles allowed={["client", "employee", "company_admin"]} />}>
+          {/* Companies browsing */}
+          <Route element={<RequireRoles allowed={["client"]} />}>
             <Route path="/app/companies" element={<Companies />} />
             <Route path="/app/companies/:id" element={<CompanyDetail />} />
             <Route path="/app/companies/:id/menu" element={<CompanyMenu />} />

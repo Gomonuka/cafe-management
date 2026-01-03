@@ -16,6 +16,7 @@ export default function CompanyMenu() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [totalAmount, setTotalAmount] = useState<number>(0);
 
   const loadMenu = async () => {
     if (!companyId) return;
@@ -34,6 +35,7 @@ export default function CompanyMenu() {
       const map: Record<number, number> = {};
       res.data.items.forEach((i) => (map[i.product_id] = i.quantity));
       setQty(map);
+      setTotalAmount(Number(res.data.total_amount));
     }
   };
 
@@ -44,19 +46,26 @@ export default function CompanyMenu() {
 
   const totalItems = useMemo(() => Object.values(qty).reduce((a, b) => a + b, 0), [qty]);
 
-  const changeQty = async (productId: number, delta: number) => {
-    const current = qty[productId] || 0;
-    const next = Math.max(0, current + delta);
+  const changeQty = async (product: { id: number; available_quantity?: number }, delta: number) => {
+    const current = qty[product.id] || 0;
+    const max = product.available_quantity ?? Number.MAX_SAFE_INTEGER;
+    if (max <= 0) {
+      setError("Šim produktam nepietiek noliktavas atlikuma.");
+      return;
+    }
+    const next = Math.max(0, Math.min(max, current + delta));
+    if (next === current) return;
     if (!companyId) return;
     try {
       if (next === 0) {
-        await removeCartItem(companyId, productId);
+        await removeCartItem(companyId, product.id);
         setToast("Produkts nonemts (P_016)");
       } else {
-        await setCartItem(companyId, productId, next);
+        await setCartItem(companyId, product.id, next);
         setToast("Produkts pievienots (P_015)");
       }
-      setQty((prev) => ({ ...prev, [productId]: next }));
+      // Reload cart to refresh totals and quantities
+      await loadCart();
       setTimeout(() => setToast(null), 1800);
     } catch (e) {
       setError("Neizdevas atjauninat grozu");
@@ -81,30 +90,36 @@ export default function CompanyMenu() {
               </div>
             </div>
 
-            <div className="category-grid">
+            {cat.products.length === 0 ? (
+              <div style={{ padding: 12, color: "#6b7280" }}>Šajā kategorijā nav pieejamu produktu.</div>
+            ) : (
+              <div className="category-grid">
               {cat.products.map((p) => {
                 const count = qty[p.id] || 0;
+                const available = p.available_quantity ?? 0;
+                const canAdd = p.is_available && available > 0;
                 return (
                   <div key={p.id} className="product-card">
                     <div className="product-thumb" />
                     <div style={{ fontWeight: 800, color: "#1e73d8" }}>{p.name}</div>
                     <div className="pill">{p.price} €</div>
-                    {!p.is_available ? (
+                    <div className="pill gray">Pieejams: {available}</div>
+                    {!canAdd ? (
                       <div className="pill gray" style={{ width: "fit-content" }}>
                         Nav pieejams
                       </div>
                     ) : (
                       <div className="product-actions">
                         <div className="qty-chip">
-                          <button className="icon-btn" onClick={() => changeQty(p.id, -1)}>
+                          <button className="icon-btn" onClick={() => changeQty(p, -1)}>
                             <FiMinus />
                           </button>
                           <span style={{ fontWeight: 700 }}>{count}</span>
-                          <button className="icon-btn" onClick={() => changeQty(p.id, +1)}>
+                          <button className="icon-btn" onClick={() => changeQty(p, +1)} disabled={count >= available}>
                             <FiPlus />
                           </button>
                         </div>
-                        <Button variant="primary" onClick={() => changeQty(p.id, +1)}>
+                        <Button variant="primary" onClick={() => changeQty(p, +1)} disabled={count >= available}>
                           Pievienot
                         </Button>
                       </div>
@@ -112,7 +127,8 @@ export default function CompanyMenu() {
                   </div>
                 );
               })}
-            </div>
+              </div>
+            )}
           </section>
         ))}
 
@@ -120,6 +136,9 @@ export default function CompanyMenu() {
         <div className="pill gray">
           <FiInfo />
           Groza daudzums: {totalItems}
+        </div>
+        <div className="pill gray">
+          Summa: {totalAmount.toFixed(2)} €
         </div>
         <Button variant="primary" onClick={() => nav(`/app/companies/${companyId}/checkout`)}>
           Izveidot pasutijumu

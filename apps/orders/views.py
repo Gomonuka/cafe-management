@@ -12,6 +12,7 @@ from rest_framework.exceptions import PermissionDenied, NotFound, ValidationErro
 from apps.accounts.models import User
 from apps.companies.models import Company
 from apps.menu.models import Product
+from apps.menu.services import compute_available_quantities
 from .models import Cart, CartItem, Order, OrderItem
 from .services import consume_inventory_for_order
 from .permissions import IsClient, IsCompanyStaff
@@ -77,6 +78,11 @@ class CartView(APIView):
         ).first()
         if not product:
             raise ValidationError({"code": "P_010", "detail": "Produkts nav pieejams vai neeksistē."})
+
+        avail_map = compute_available_quantities([product])
+        max_available = avail_map.get(product.id, 0)
+        if max_available <= 0 or qty > max_available:
+            raise ValidationError({"code": "P_010", "detail": "Nepietiek noliktavas atlikuma šim produktam."})
 
         cart, _ = Cart.objects.get_or_create(user=request.user, company_id=company_id)
         item, created = CartItem.objects.update_or_create(
@@ -151,6 +157,11 @@ class CheckoutView(APIView):
             # Drošībai pārbaudām pieejamību vēlreiz
             if not ci.product.is_available:
                 raise ValidationError({"code": "P_010", "detail": "Grozā ir produkts, kas vairs nav pieejams."})
+
+            avail_map = compute_available_quantities([ci.product])
+            max_available = avail_map.get(ci.product.id, 0)
+            if max_available <= 0 or ci.quantity > max_available:
+                raise ValidationError({"code": "P_010", "detail": "Nepietiek noliktavas atlikuma pasūtījumam."})
 
             line_total = ci.product.price * ci.quantity
             total += line_total

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { FiEdit2, FiTrash2, FiPlus } from "react-icons/fi";
 import Card from "../components/ui/Card";
 import Input from "../components/ui/Input";
+import { FiUser, FiMail, FiLock } from "react-icons/fi";
 import Button from "../components/ui/Button";
 import AvatarBlock from "../components/profile/AvatarBlock";
 import type { Employee } from "../api/accounts";
@@ -123,7 +124,7 @@ export default function CompanyEmployees() {
             <div>Lietotājvārds</div>
             <div style={{ textAlign: "right" }}>
               <Button variant="primary" onClick={startCreate}>
-                <FiPlus /> Pievienot darbinieku
+                Pievienot darbinieku
               </Button>
             </div>
           </div>
@@ -153,19 +154,32 @@ export default function CompanyEmployees() {
           <Card>
             <Input
               label="Lietotājvārds"
+              leftIcon={<FiUser />}
               value={form.username}
               onChange={(v) => setForm((s) => ({ ...s, username: v }))}
             />
-            <Input label="Vārds" value={form.first_name} onChange={(v) => setForm((s) => ({ ...s, first_name: v }))} />
+            <Input
+              label="Vārds"
+              leftIcon={<FiUser />}
+              value={form.first_name}
+              onChange={(v) => setForm((s) => ({ ...s, first_name: v }))}
+            />
             <Input
               label="Uzvārds"
+              leftIcon={<FiUser />}
               value={form.last_name}
               onChange={(v) => setForm((s) => ({ ...s, last_name: v }))}
             />
-            <Input label="E-pasts" value={form.email} onChange={(v) => setForm((s) => ({ ...s, email: v }))} />
+            <Input
+              label="E-pasts"
+              leftIcon={<FiMail />}
+              value={form.email}
+              onChange={(v) => setForm((s) => ({ ...s, email: v }))}
+            />
             <Input
               label="Parole"
               type="password"
+              leftIcon={<FiLock />}
               value={form.password}
               onChange={(v) => setForm((s) => ({ ...s, password: v }))}
             />
@@ -173,7 +187,7 @@ export default function CompanyEmployees() {
 
           <Card>
             <div className="actions">
-              <Button variant="primary" onClick={onSave}>
+              <Button variant="primary" onClick={onSave} className="btn-full">
                 Saglabāt izmaiņas
               </Button>
             </div>

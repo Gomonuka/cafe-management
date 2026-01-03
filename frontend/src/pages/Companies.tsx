@@ -1,25 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FiMapPin, FiSearch } from "react-icons/fi";
+import { FiMapPin, FiSearch, FiImage, FiFilter, FiType } from "react-icons/fi";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
 import { listCities, listCompanies, filterByCity, type PublicCompany } from "../api/companies";
-
-const weekdays = ["Pr-Pk", "Se", "Sv", ""]; // not used in detail list, but placeholders
-
-function WorkingHours({ company }: { company: PublicCompany }) {
-  if (!company.working_hours?.length) return null;
-  return (
-    <ul style={{ listStyle: "none", padding: 0, margin: "6px 0 0 0", color: "#0f4e9c", fontSize: 13 }}>
-      {company.working_hours.map((wh) => (
-        <li key={wh.weekday}>
-          {wh.from_time} - {wh.to_time}
-        </li>
-      ))}
-    </ul>
-  );
-}
+import "../styles/menu.css";
 
 export default function Companies() {
   const nav = useNavigate();
@@ -58,47 +44,71 @@ export default function Companies() {
 
   const filtered = useMemo(() => companies, [companies]);
 
+  const logoNode = (c: PublicCompany) => {
+    if (c.logo) {
+      return <img src={c.logo} alt={c.name} className="company-logo-img large" />;
+    }
+    const initials = c.name
+      .split(" ")
+      .filter(Boolean)
+      .map((w) => w[0]?.toUpperCase())
+      .slice(0, 2)
+      .join("");
+    return (
+      <div className="company-logo-placeholder large">
+        <FiImage size={28} />
+        <span>{initials || "?"}</span>
+      </div>
+    );
+  };
+
   return (
-    <div className="profile-wrap" style={{ alignItems: "stretch" }}>
+    <div className="profile-wrap companies-page" style={{ alignItems: "stretch" }}>
       <div className="profile-title" style={{ textAlign: "left" }}>
         Uzņēmumi
       </div>
 
-      <Card>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-          <div style={{ minWidth: 180 }}>
+      <Card className="companies-filters">
+        <div className="companies-filter-row">
+          <div className="companies-filter">
             <label className="sb-role" style={{ color: "#1e73d8", fontWeight: 700 }}>
               Pilsēta
             </label>
-            <select
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              style={{ width: "100%", padding: "10px", borderRadius: 10, border: "1px solid #cfd8e3" }}
-            >
-              <option value="">Visas</option>
-              {cities.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
+            <div className="select-with-icon">
+              <FiMapPin className="select-icon" />
+              <select
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                className="select-input has-icon"
+              >
+                <option value="">Visas</option>
+                {cities.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          <div style={{ minWidth: 180 }}>
+          <div className="companies-filter">
             <label className="sb-role" style={{ color: "#1e73d8", fontWeight: 700 }}>
               Pēc nosaukuma
             </label>
-            <select
-              value={sort}
-              onChange={(e) => setSort(e.target.value as "asc" | "desc")}
-              style={{ width: "100%", padding: "10px", borderRadius: 10, border: "1px solid #cfd8e3" }}
-            >
-              <option value="asc">A–Ž</option>
-              <option value="desc">Ž–A</option>
-            </select>
+            <div className="select-with-icon">
+              <FiType className="select-icon" />
+              <select
+                value={sort}
+                onChange={(e) => setSort(e.target.value as "asc" | "desc")}
+                className="select-input has-icon"
+              >
+                <option value="asc">A–Ž</option>
+                <option value="desc">Ž–A</option>
+              </select>
+            </div>
           </div>
 
-          <div style={{ flex: 1, minWidth: 220 }}>
+          <div className="companies-search">
             <Input
               label="Meklēt"
               leftIcon={<FiSearch />}
@@ -116,19 +126,21 @@ export default function Companies() {
       ) : error ? (
         <div style={{ padding: 20, color: "red" }}>{error}</div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
+        <div className="companies-grid">
           {filtered.map((c) => (
-            <Card key={c.id} style={{ minHeight: 240 }}>
-              <div style={{ fontWeight: 800, color: "#1e73d8", marginBottom: 6 }}>{c.name}</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#0f4e9c" }}>
-                <FiMapPin /> {c.address_line}, {c.city}
+            <Card key={c.id} className="company-card">
+              <div className="company-card-top">
+                <div className="company-logo">{logoNode(c)}</div>
+                <div className="company-info">
+                  <div className="company-name">{c.name}</div>
+                  <div className="company-location">
+                    <FiMapPin /> {c.address_line}, {c.city}
+                  </div>
+                </div>
               </div>
-              <WorkingHours company={c} />
-              <div style={{ marginTop: 12 }}>
-                <Button variant="primary" onClick={() => nav(`/app/companies/${c.id}`)}>
-                  Skatīt informāciju
-                </Button>
-              </div>
+              <Button variant="primary" className="btn-full" onClick={() => nav(`/app/companies/${c.id}`)}>
+                Skatīt informāciju
+              </Button>
             </Card>
           ))}
         </div>
