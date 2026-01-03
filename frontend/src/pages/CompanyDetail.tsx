@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { FiMapPin, FiPhone, FiMail, FiImage } from "react-icons/fi";
+import { FiMapPin, FiPhone, FiMail, FiImage, FiArrowLeft, FiBookOpen } from "react-icons/fi";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import { getCompanyDetail, type CompanyDetail } from "../api/companies";
@@ -40,11 +40,17 @@ export default function CompanyDetailPage() {
 
   return (
     <div className="profile-wrap" style={{ alignItems: "stretch" }}>
-      <div className="profile-title" style={{ textAlign: "left", display: "flex", alignItems: "center", gap: 8 }}>
-        <button className="link-btn" onClick={() => nav(-1)} aria-label="Atpakaļ">
-          ←
+      <div className="company-detail-topbar">
+        <button className="link-btn circle" onClick={() => nav(-1)} aria-label="Atpakaļ">
+          <FiArrowLeft />
         </button>
-        {company ? company.name : "Uzņēmums"}
+        <div className="company-detail-top-title">{company ? company.name : "Uzņēmums"}</div>
+        {company && (
+          <Button variant="primary" onClick={() => nav(`/app/companies/${company.id}/menu`)} className="topbar-btn">
+            <FiBookOpen style={{ marginRight: 8 }} />
+            Skatīt ēdienkarti
+          </Button>
+        )}
       </div>
 
       {error && <div style={{ color: "red", padding: 12 }}>{error}</div>}
@@ -67,9 +73,6 @@ export default function CompanyDetailPage() {
               <div className="company-detail-line">
                 <FiMail /> {company.email || "Nav norādīts"}
               </div>
-              <Button variant="primary" className="btn-full" onClick={() => nav(`/app/companies/${company.id}/menu`)}>
-                Skatīt ēdienkarti
-              </Button>
             </Card>
           </div>
 

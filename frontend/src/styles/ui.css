@@ -3,6 +3,10 @@
   border-radius: 18px;
   padding: 14px;
   box-shadow: var(--shadow);
+  display:flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 10px;
 }
 
 .btn{

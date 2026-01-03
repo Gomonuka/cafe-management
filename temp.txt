@@ -118,7 +118,7 @@ export default function Inventory() {
           <div>Daudzums</div>
           <div className="inventory-action-head">
             <span>Rediģēt</span>
-            {isAdmin && <span>Dzēst</span>}
+            <span>Dzēst</span>
           </div>
         </div>
         <div className="inventory-list">
@@ -136,7 +136,12 @@ export default function Inventory() {
                 <span>{it.unit}</span>
               </div>
               <div className="inventory-actions">
-                <Button variant="ghost" onClick={() => onSelect(it)} className="icon-btn icon-edit" aria-label="Rediģēt">
+                <Button
+                  variant="ghost"
+                  onClick={() => onSelect(it)}
+                  className="icon-btn icon-edit"
+                  aria-label="Rediģēt"
+                >
                   <FiEdit2 />
                 </Button>
                 {isAdmin && (

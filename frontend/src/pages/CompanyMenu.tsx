@@ -24,7 +24,7 @@ export default function CompanyMenu() {
     setError(null);
     const res = await fetchMenu(companyId);
     if (res.ok) setCategories(res.data.categories);
-    else setError(res.data?.detail || "Neizdevas ieladet edienkarti");
+    else setError(res.data?.detail || "Neizdevās ielādēt ēdienkarti");
     setLoading(false);
   };
 
@@ -59,24 +59,23 @@ export default function CompanyMenu() {
     try {
       if (next === 0) {
         await removeCartItem(companyId, product.id);
-        setToast("Produkts nonemts (P_016)");
+        setToast("Produkts noņemts (P_016)");
       } else {
         await setCartItem(companyId, product.id, next);
         setToast("Produkts pievienots (P_015)");
       }
-      // Reload cart to refresh totals and quantities
       await loadCart();
       setTimeout(() => setToast(null), 1800);
     } catch (e) {
-      setError("Neizdevas atjauninat grozu");
+      setError("Neizdevās atjaunināt grozu");
     }
   };
 
   return (
     <div className="profile-wrap" style={{ alignItems: "stretch" }}>
-      <div className="page-heading">Edienkarte</div>
+      <div className="page-heading">Ēdienkarte</div>
       {error && <div style={{ color: "red", padding: 12 }}>{error}</div>}
-      {loading && <div style={{ padding: 12 }}>Ielade...</div>}
+      {loading && <div style={{ padding: 12 }}>Ielāde...</div>}
 
       {!loading &&
         categories.map((cat) => (
@@ -93,55 +92,53 @@ export default function CompanyMenu() {
             {cat.products.length === 0 ? (
               <div style={{ padding: 12, color: "#6b7280" }}>Šajā kategorijā nav pieejamu produktu.</div>
             ) : (
-              <div className="category-grid">
-              {cat.products.map((p) => {
-                const count = qty[p.id] || 0;
-                const available = p.available_quantity ?? 0;
-                const canAdd = p.is_available && available > 0;
-                return (
-                  <div key={p.id} className="product-card">
-                    <div className="product-thumb" />
-                    <div style={{ fontWeight: 800, color: "#1e73d8" }}>{p.name}</div>
-                    <div className="pill">{p.price} €</div>
-                    <div className="pill gray">Pieejams: {available}</div>
-                    {!canAdd ? (
-                      <div className="pill gray" style={{ width: "fit-content" }}>
-                        Nav pieejams
-                      </div>
-                    ) : (
-                      <div className="product-actions">
-                        <div className="qty-chip">
-                          <button className="icon-btn" onClick={() => changeQty(p, -1)}>
-                            <FiMinus />
-                          </button>
-                          <span style={{ fontWeight: 700 }}>{count}</span>
-                          <button className="icon-btn" onClick={() => changeQty(p, +1)} disabled={count >= available}>
-                            <FiPlus />
-                          </button>
+              <div className="products-grid">
+                {cat.products.map((p) => {
+                  const count = qty[p.id] || 0;
+                  const available = p.available_quantity ?? 0;
+                  const canAdd = p.is_available && available > 0;
+                  return (
+                    <div key={p.id} className="product-card">
+                      <div className="product-thumb" />
+                      <div className="product-name">{p.name}</div>
+                      <div className="pill">{Number(p.price).toFixed(2)} €</div>
+                      <div className="pill gray">Pieejams: {available}</div>
+                      {!canAdd ? (
+                        <div className="pill gray" style={{ width: "fit-content" }}>
+                          Nav pieejams
                         </div>
-                        <Button variant="primary" onClick={() => changeQty(p, +1)} disabled={count >= available}>
-                          Pievienot
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                      ) : (
+                        <div className="product-actions">
+                          <div className="qty-chip">
+                            <button className="icon-btn" onClick={() => changeQty(p, -1)}>
+                              <FiMinus />
+                            </button>
+                            <span style={{ fontWeight: 700 }}>{count}</span>
+                            <button className="icon-btn" onClick={() => changeQty(p, +1)} disabled={count >= available}>
+                              <FiPlus />
+                            </button>
+                          </div>
+                          <Button variant="primary" onClick={() => changeQty(p, +1)} disabled={count >= available}>
+                            Pievienot
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </section>
         ))}
 
       <div className="bottom-bar">
-        <div className="pill gray">
+        <div className="pill gray bottom-pill">
           <FiInfo />
           Groza daudzums: {totalItems}
         </div>
-        <div className="pill gray">
-          Summa: {totalAmount.toFixed(2)} €
-        </div>
+        <div className="pill gray bottom-pill">Summa: {totalAmount.toFixed(2)} €</div>
         <Button variant="primary" onClick={() => nav(`/app/companies/${companyId}/checkout`)}>
-          Izveidot pasutijumu
+          Izveidot pasūtījumu
         </Button>
       </div>
 

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FiMapPin, FiSearch, FiImage, FiFilter, FiType } from "react-icons/fi";
+import { FiMapPin, FiSearch, FiImage, FiType } from "react-icons/fi";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
@@ -26,9 +26,7 @@ export default function Companies() {
     setLoading(true);
     setError(null);
     const res =
-      city && city !== "all"
-        ? await filterByCity(city)
-        : await listCompanies({ search: search || undefined, sort });
+      city && city !== "all" ? await filterByCity(city) : await listCompanies({ search: search || undefined, sort });
     if (res.ok) setCompanies(res.data);
     else setError(res.data?.detail || "Neizdevās ielādēt uzņēmumus.");
     setLoading(false);
@@ -42,7 +40,7 @@ export default function Companies() {
     void loadCompanies();
   }, [city, sort]);
 
-  const filtered = useMemo(() => companies, [companies]);
+  const filtered = useMemo(() => (Array.isArray(companies) ? companies : []), [companies]);
 
   const logoNode = (c: PublicCompany) => {
     if (c.logo) {
@@ -76,11 +74,7 @@ export default function Companies() {
             </label>
             <div className="select-with-icon">
               <FiMapPin className="select-icon" />
-              <select
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                className="select-input has-icon"
-              >
+              <select value={city} onChange={(e) => setCity(e.target.value)} className="select-input has-icon">
                 <option value="">Visas</option>
                 {cities.map((c) => (
                   <option key={c} value={c}>
@@ -97,11 +91,7 @@ export default function Companies() {
             </label>
             <div className="select-with-icon">
               <FiType className="select-icon" />
-              <select
-                value={sort}
-                onChange={(e) => setSort(e.target.value as "asc" | "desc")}
-                className="select-input has-icon"
-              >
+              <select value={sort} onChange={(e) => setSort(e.target.value as "asc" | "desc")} className="select-input has-icon">
                 <option value="asc">A–Ž</option>
                 <option value="desc">Ž–A</option>
               </select>
@@ -109,14 +99,15 @@ export default function Companies() {
           </div>
 
           <div className="companies-search">
-            <Input
-              label="Meklēt"
-              leftIcon={<FiSearch />}
-              value={search}
-              onChange={setSearch}
-              onBlur={() => loadCompanies()}
-              placeholder="Ievadiet nosaukumu"
-            />
+            <label className="sb-role" style={{ color: "#1e73d8", fontWeight: 700 }}>
+              Meklēt
+            </label>
+            <div className="companies-search-row">
+              <Input leftIcon={<FiSearch />} value={search} onChange={setSearch} placeholder="Nosaukums" />
+              <Button variant="primary" onClick={() => loadCompanies()} className="btn-full">
+                Meklēt
+              </Button>
+            </div>
           </div>
         </div>
       </Card>
@@ -125,6 +116,8 @@ export default function Companies() {
         <div style={{ padding: 20 }}>Ielāde...</div>
       ) : error ? (
         <div style={{ padding: 20, color: "red" }}>{error}</div>
+      ) : filtered.length === 0 ? (
+        <div style={{ padding: 20, color: "#d9534f", fontWeight: 700 }}>Nav atrastu uzņēmumu pēc šī vaicājuma.</div>
       ) : (
         <div className="companies-grid">
           {filtered.map((c) => (

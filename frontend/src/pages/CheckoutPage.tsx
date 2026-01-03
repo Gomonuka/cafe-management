@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { FiMinus, FiPlus, FiTrash2 } from "react-icons/fi";
+import { FiMinus, FiPlus, FiTrash2, FiEdit3 } from "react-icons/fi";
 import Card from "../components/ui/Card";
 import Input from "../components/ui/Input";
 import Button from "../components/ui/Button";
@@ -31,7 +31,7 @@ export default function CheckoutPage() {
       setItems(res.data.items);
       setTotal(Number(res.data.total_amount));
     } else {
-      setError(res.data?.detail || "Neizdevas ieladet grozu");
+      setError(res.data?.detail || "Neizdevās ielādēt grozu");
     }
     setLoading(false);
   };
@@ -64,32 +64,32 @@ export default function CheckoutPage() {
       setError(res.data?.detail || JSON.stringify(res.data));
       return;
     }
-    setMessage("Pasutijums izveidots");
+    setMessage("Pasūtījums izveidots");
     setTimeout(() => nav("/app/orders"), 400);
   };
 
   return (
     <div className="profile-wrap" style={{ alignItems: "stretch" }}>
-      <div className="page-heading">Pasutijums</div>
+      <div className="page-heading">Pasūtījums</div>
       {error && <div style={{ color: "red", padding: 12 }}>{error}</div>}
       <div className="order-grid">
         <Card>
           <div className="profile-title" style={{ textAlign: "left", margin: "0 0 8px" }}>
-            Pasutijuma saturs
+            Pasūtījuma saturs
           </div>
           {loading ? (
-            <div style={{ padding: 12 }}>Ielade...</div>
+            <div style={{ padding: 12 }}>Ielāde...</div>
           ) : items.length === 0 ? (
-            <div style={{ padding: 12, color: "#6b7280" }}>Grozs ir tukšs.</div>
+            <div style={{ padding: 12, color: "#6b7280" }}>Groza saturs ir tukšs.</div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {items.map((it) => (
                 <div
                   key={it.product_id}
                   style={{
                     display: "grid",
                     gridTemplateColumns: "1fr auto auto auto",
-                    gap: 8,
+                    gap: 10,
                     alignItems: "center",
                     padding: "6px 8px",
                     borderRadius: 10,
@@ -97,7 +97,7 @@ export default function CheckoutPage() {
                   }}
                 >
                   <div style={{ fontWeight: 700, color: "#1e73d8" }}>{it.product_name}</div>
-                  <div style={{ color: "#0f4e9c" }}>{it.unit_price} €</div>
+                  <div style={{ color: "#0f4e9c" }}>{Number(it.unit_price).toFixed(2)} €</div>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <button className="icon-btn" onClick={() => changeQty(it, -1)}>
                       <FiMinus />
@@ -107,7 +107,7 @@ export default function CheckoutPage() {
                       <FiPlus />
                     </button>
                   </div>
-                  <button className="icon-btn danger" onClick={() => deleteItem(it)} title="Dzest">
+                  <button className="icon-btn danger" onClick={() => deleteItem(it)} title="Dzēst">
                     <FiTrash2 />
                   </button>
                 </div>
@@ -119,40 +119,48 @@ export default function CheckoutPage() {
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <Card>
             <div className="profile-title" style={{ textAlign: "left", margin: "0 0 8px" }}>
-              Pasutijuma veids
+              Pasūtījuma veids
             </div>
-            <label>
-              <input type="radio" checked={orderType === "ON"} onChange={() => setOrderType("ON")} /> Uz vietas
-            </label>
-            <label style={{ marginTop: 6 }}>
-              <input type="radio" checked={orderType === "TA"} onChange={() => setOrderType("TA")} /> Lidznesanai
-            </label>
+            <div className="order-radio">
+              <label>
+                <input type="radio" checked={orderType === "ON"} onChange={() => setOrderType("ON")} /> Uz vietas
+              </label>
+              <label>
+                <input type="radio" checked={orderType === "TA"} onChange={() => setOrderType("TA")} /> Līdzņemšanai
+              </label>
+            </div>
           </Card>
           <Card>
             <div className="profile-title" style={{ textAlign: "left", margin: "0 0 8px" }}>
-              Piezimes
+              Piezīmes
             </div>
-            <Input multiline value={notes} onChange={setNotes} placeholder="Var ludzu produktam 1 bez cukura" />
+            <Input
+              multiline
+              leftIcon={<FiEdit3 />}
+              value={notes}
+              onChange={setNotes}
+              placeholder="Var lūdzu produktam 1 bez cukura"
+            />
           </Card>
           <Card>
             <div className="profile-title" style={{ textAlign: "left", margin: "0 0 8px" }}>
               Kopsavilkums
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", lineHeight: 1.9 }}>
               <span>Starpsumma:</span>
               <span>{subtotal.toFixed(2)} €</span>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", lineHeight: 1.9 }}>
               <span>PVN (21%):</span>
               <span>{vat.toFixed(2)} €</span>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800, marginTop: 6 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800, marginTop: 8, lineHeight: 1.9 }}>
               <span>Kopā:</span>
               <span>{totalDisplay.toFixed(2)} €</span>
             </div>
           </Card>
           <Button variant="primary" onClick={onCheckout}>
-            Noformet pasutijumu
+            Noformēt pasūtījumu
           </Button>
           {message && <div style={{ color: "green" }}>{message}</div>}
         </div>

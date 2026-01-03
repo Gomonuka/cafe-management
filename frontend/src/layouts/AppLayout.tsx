@@ -30,12 +30,19 @@ export default function AppLayout({ children }: { children?: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (requiresProfile && loc.pathname !== "/app/profile") {
+    const shouldForceProfile = requiresProfile && role !== "employee";
+    const shouldForceCompany = requiresCompany && role === "company_admin";
+
+    if (shouldForceProfile && loc.pathname !== "/app/profile") {
       nav("/app/profile", { replace: true });
-    } else if (requiresCompany && !loc.pathname.startsWith("/app/create-company") && !loc.pathname.startsWith("/app/profile")) {
+    } else if (
+      shouldForceCompany &&
+      !loc.pathname.startsWith("/app/create-company") &&
+      !loc.pathname.startsWith("/app/profile")
+    ) {
       nav("/app/create-company", { replace: true });
     }
-  }, [requiresProfile, requiresCompany, loc.pathname, nav]);
+  }, [requiresProfile, requiresCompany, role, loc.pathname, nav]);
 
   const logout = async () => {
     await apiLogout();
