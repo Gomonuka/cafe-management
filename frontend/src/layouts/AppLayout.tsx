@@ -1,3 +1,4 @@
+//  frontend/src/layouts/AppLayout.tsx
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { useNavigate, Outlet, useLocation } from "react-router-dom";

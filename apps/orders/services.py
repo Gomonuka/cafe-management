@@ -1,3 +1,4 @@
+# apps/orders/services.py
 from decimal import Decimal
 from django.db import transaction
 from django.db.models import F
@@ -6,7 +7,6 @@ from rest_framework.exceptions import ValidationError
 from apps.inventory.models import InventoryItem
 from apps.menu.models import RecipeItem
 from .models import Order
-
 
 @transaction.atomic
 def consume_inventory_for_order(order: Order):

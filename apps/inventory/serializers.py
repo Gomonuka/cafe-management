@@ -1,14 +1,13 @@
+# apps/inventory/serializers.py
 from rest_framework import serializers
 from apps.accounts.models import User
 from .models import InventoryItem
-
 
 class InventoryListSerializer(serializers.ModelSerializer):
     # INV_001: sarakstam rādam nosaukums, mērvienība, atlikums
     class Meta:
         model = InventoryItem
         fields = ["id", "name", "unit", "quantity"]
-
 
 class InventoryCreateSerializer(serializers.ModelSerializer):
     # INV_002: izveide (UA)
@@ -31,7 +30,6 @@ class InventoryCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Daudzumam jābūt pozitīvam.")
         return value
 
-
 class InventoryUpdateAdminSerializer(serializers.ModelSerializer):
     # INV_003: UA var rediģēt visu
     class Meta:
@@ -52,7 +50,6 @@ class InventoryUpdateAdminSerializer(serializers.ModelSerializer):
         if value <= 0:
             raise serializers.ValidationError("Daudzumam jābūt pozitīvam.")
         return value
-
 
 class InventoryUpdateEmployeeSerializer(serializers.ModelSerializer):
     # INV_003: darbinieks var rediģēt tikai daudzumu

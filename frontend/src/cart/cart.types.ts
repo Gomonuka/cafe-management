@@ -1,7 +1,8 @@
+//  frontend/src/cart/cart.types.ts
 export type CartItem = {
   productId: number;
   name: string;
-  price: number; // per 1 item
+  price: number; // par 1 vienību
   qty: number;
 };
 

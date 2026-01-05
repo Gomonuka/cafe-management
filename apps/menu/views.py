@@ -1,8 +1,10 @@
+# apps/menu/views.py
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied, NotFound
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
 from apps.accounts.models import User
 from apps.companies.models import Company
@@ -19,11 +21,9 @@ from .permissions import IsCompanyAdmin
 from .utils import parse_recipe
 from .services import compute_available_quantities
 
-
 def company_public_available(company_id: int) -> bool:
     # Klientam uzņēmumam jābūt aktīvam, nebloķētam un ne soft-deleted
     return Company.objects.filter(id=company_id, deleted_at__isnull=True, is_active=True, is_blocked=False).exists()
-
 
 class MenuView(APIView):
     """
@@ -40,7 +40,7 @@ class MenuView(APIView):
 
         user = request.user
 
-        # Klients/viesis
+        # Klients
         if not (user.is_authenticated and user.role == User.Role.COMPANY_ADMIN):
             # Pārbauda, vai uzņēmums ir publiski pieejams
             if not company_public_available(company_id):
@@ -48,6 +48,10 @@ class MenuView(APIView):
 
             categories = MenuCategory.objects.filter(company=company, is_active=True).order_by("name")
             data = []
+            product_ids = [p.id for p in Product.objects.filter(company=company, is_available=True)]
+            recipe_ids = set(
+                RecipeItem.objects.filter(product_id__in=product_ids).values_list("product_id", flat=True).distinct()
+            )
             for cat in categories:
                 products = list(
                     Product.objects.filter(company=company, category=cat, is_available=True)
@@ -58,8 +62,11 @@ class MenuView(APIView):
 
                 products_payload = []
                 for p in products:
+                    # ja nav receptes – nerādam klientam
+                    if p.id not in recipe_ids:
+                        continue
                     available_qty = available_map.get(p.id, 0)
-                    # Only expose products that can actually be produced now
+                    # Atklāt tikai tos produktus, kurus faktiski var ražot tagad
                     if available_qty <= 0:
                         continue
                     products_payload.append(
@@ -69,6 +76,7 @@ class MenuView(APIView):
                             "price": str(p.price),
                             "is_available": p.is_available,
                             "available_quantity": available_qty,
+                            "photo": request.build_absolute_uri(p.photo.url) if p.photo else None,
                         }
                     )
 
@@ -80,9 +88,9 @@ class MenuView(APIView):
                         "products": products_payload,
                     }
                 )
-            return Response(MenuPublicSerializer({"categories": data}).data, status=status.HTTP_200_OK)
+            return Response(MenuPublicSerializer({"categories": data}, context={"request": request}).data, status=status.HTTP_200_OK)
 
-        # UA
+        # Uzņēmuma administrators
         if user.company_id != company_id:
             raise PermissionDenied("Piekļuve ir atļauta tikai savam uzņēmumam.")
 
@@ -102,18 +110,19 @@ class MenuView(APIView):
                     "is_available": p.is_available,
                     "available_quantity": available_map.get(p.id, 0),
                     "category_id": p.category_id,
+                    "photo": request.build_absolute_uri(p.photo.url) if p.photo else None,
                 }
                 for p in products
             ],
         }
-        return Response(MenuAdminSerializer(admin_payload).data, status=status.HTTP_200_OK)
-
+        return Response(MenuAdminSerializer(admin_payload, context={"request": request}).data, status=status.HTTP_200_OK)
 
 class CategoryCreateView(APIView):
     """
     MENU_005: pievienot kategoriju
     """
     permission_classes = [IsAuthenticated, IsCompanyAdmin]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def post(self, request):
         user: User = request.user
@@ -127,12 +136,12 @@ class CategoryCreateView(APIView):
         return Response({"code": "P_001", "detail": "Kategorija ir izveidota.", "id": category.id},
                         status=status.HTTP_201_CREATED)
 
-
 class CategoryUpdateView(APIView):
     """
     MENU_006: rediģēt kategoriju
     """
     permission_classes = [IsAuthenticated, IsCompanyAdmin]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def put(self, request, category_id: int):
         user: User = request.user
@@ -146,7 +155,6 @@ class CategoryUpdateView(APIView):
 
         return Response({"code": "P_002", "detail": "Kategorija ir atjaunināta."},
                         status=status.HTTP_200_OK)
-
 
 class CategoryDeleteView(APIView):
     """
@@ -163,7 +171,6 @@ class CategoryDeleteView(APIView):
         category.delete()
         return Response({"code": "P_004", "detail": "Kategorija ir dzēsta."},
                         status=status.HTTP_200_OK)
-
 
 class ProductCreateView(APIView):
     """
@@ -189,7 +196,6 @@ class ProductCreateView(APIView):
         return Response({"code": "P_001", "detail": "Produkts ir izveidots.", "id": product.id},
                         status=status.HTTP_201_CREATED)
 
-
 class ProductUpdateView(APIView):
     """
     MENU_003: rediģēt produktu
@@ -203,7 +209,8 @@ class ProductUpdateView(APIView):
             raise NotFound("Produkts nav atrasts.")
 
         data = request.data.copy()
-        data["recipe"] = parse_recipe(data)
+        if "recipe" in request.data:
+            data["recipe"] = parse_recipe(data)
 
         s = ProductCreateUpdateSerializer(
             instance=product,
@@ -216,7 +223,6 @@ class ProductUpdateView(APIView):
 
         return Response({"code": "P_002", "detail": "Produkts ir atjaunināts."},
                         status=status.HTTP_200_OK)
-
 
 class ProductDeleteView(APIView):
     """
@@ -233,7 +239,6 @@ class ProductDeleteView(APIView):
         product.delete()
         return Response({"code": "P_004", "detail": "Produkts ir dzēsts."},
                         status=status.HTTP_200_OK)
-
 
 class ProductRecipeView(APIView):
     """
@@ -266,7 +271,7 @@ class ProductRecipeView(APIView):
 
         payload = request.data.get("recipe")
         if not isinstance(payload, list):
-            return Response({"detail": "recipe must be list"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "Receptes formāts nav korekts."}, status=status.HTTP_400_BAD_REQUEST)
 
         cleaned = []
         for row in payload:

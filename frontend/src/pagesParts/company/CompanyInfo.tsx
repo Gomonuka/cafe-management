@@ -1,108 +1,36 @@
-import { useEffect, useMemo, useState } from "react";
+// frontend/src/pagesParts/company/CompanyInfo.tsx
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  ArrowLeft,
-  Mail,
-  Phone,
-  MapPin,
-  Globe,
-  Building2,
-  UploadCloud,
-  X,
-} from "lucide-react";
+import { ArrowLeft, Mail, Phone, MapPin, Globe, Building2, UploadCloud, X } from "lucide-react";
 
 import {
-  getCompany,
+  getCompanyDetail,
   updateCompany,
   deactivateCompany,
-  deleteCompany,
-  getCompanyWorkingHours,
-  upsertCompanyWorkingHours,
-} from "../../api/company.api";
+  deleteMyCompany,
+} from "../../api/companies";
 
 import "../../styles/companyInfo.css";
 
 type Props = {
   companyId: string;
   editable: boolean;
-  // для клиента можно показывать кнопку "Skatīt ēdienkarti"
   showMenuButton?: boolean;
 };
-
-type WHRow = {
-  weekday: number; // 1..7
-  open_time: string; // "09:00"
-  close_time: string; // "21:00"
-  is_closed: boolean;
-};
-
-const WEEKDAYS = [
-  { id: 1, label: "Pirmdiena" },
-  { id: 2, label: "Otrdiena" },
-  { id: 3, label: "Trešdiena" },
-  { id: 4, label: "Ceturtdiena" },
-  { id: 5, label: "Piektdiena" },
-  { id: 6, label: "Sestdiena" },
-  { id: 7, label: "Svētdiena" },
-];
 
 export default function CompanyInfo({ companyId, editable, showMenuButton }: Props) {
   const nav = useNavigate();
 
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
 
   const [company, setCompany] = useState<any>(null);
-  const [wh, setWh] = useState<WHRow[]>(
-    WEEKDAYS.map((d) => ({
-      weekday: d.id,
-      open_time: "",
-      close_time: "",
-      is_closed: true,
-    }))
-  );
 
   const title = useMemo(() => company?.name || company?.nosaukums || "Restorāns", [company]);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        setLoading(true);
-        setErr(null);
-
-        const c = await getCompany(companyId);
-        setCompany(c);
-
-        const hours = await getCompanyWorkingHours(companyId);
-        // нормализуем
-        const map = new Map<number, WHRow>();
-        for (const row of hours || []) {
-          map.set(row.weekday ?? row.nedelas_diena, {
-            weekday: row.weekday ?? row.nedelas_diena,
-            open_time: row.open_time ?? row.atversanas_laiks ?? "",
-            close_time: row.close_time ?? row.slegsanas_laiks ?? "",
-            is_closed: row.is_closed ?? row.vai_ir_slegts ?? false,
-          });
-        }
-        setWh(
-          WEEKDAYS.map((d) => map.get(d.id) ?? { weekday: d.id, open_time: "", close_time: "", is_closed: true })
-        );
-      } catch (e: any) {
-        setErr(e?.message || "Failed to load company");
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [companyId]);
-
   const onChange = (key: string, value: any) => {
     setCompany((prev: any) => ({ ...(prev || {}), [key]: value }));
-  };
-
-  const onWHChange = (weekday: number, patch: Partial<WHRow>) => {
-    setWh((prev) => prev.map((r) => (r.weekday === weekday ? { ...r, ...patch } : r)));
   };
 
   const onSave = async () => {
@@ -112,24 +40,17 @@ export default function CompanyInfo({ companyId, editable, showMenuButton }: Pro
       setErr(null);
       setOk(null);
 
-      // 1) company
-      const payload = {
-        name: company?.name ?? company?.nosaukums,
-        email: company?.email ?? company?.e_pasts,
-        phone: company?.phone ?? company?.talrunis,
-        description: company?.description ?? company?.apraksts,
-        // address parts:
-        address_country: company?.address_country ?? company?.valsts,
-        address_city: company?.address_city ?? company?.pilseta,
-        address_line1: company?.address_line1 ?? company?.adreses_1_linija,
-      };
+      const fd = new FormData();
+      fd.append("name", company?.name ?? company?.nosaukums ?? "");
+      fd.append("email", company?.email ?? company?.e_pasts ?? "");
+      fd.append("phone", company?.phone ?? company?.talrunis ?? "");
+      fd.append("description", company?.description ?? company?.apraksts ?? "");
+      fd.append("country", company?.address_country ?? company?.valsts ?? "");
+      fd.append("city", company?.address_city ?? company?.pilseta ?? "");
+      fd.append("address_line", company?.address_line1 ?? company?.adreses_1_linija ?? "");
 
-      const updated = await updateCompany(companyId, payload);
-      setCompany(updated);
-
-      // 2) working hours (upsert)
-      await upsertCompanyWorkingHours(companyId, wh);
-
+      const updated = await updateCompany(fd);
+      setCompany(updated.data);
       setOk("Saglabāts!");
     } catch (e: any) {
       setErr(e?.message || "Failed to save");
@@ -143,11 +64,10 @@ export default function CompanyInfo({ companyId, editable, showMenuButton }: Pro
     if (!confirm("Deaktivizēt uzņēmumu?")) return;
     try {
       setSaving(true);
-      await deactivateCompany(companyId);
-      setOk("Uzņēmums deaktivizēts.");
-      // можно перезагрузить
-      const c = await getCompany(companyId);
-      setCompany(c);
+      const res = await deactivateCompany();
+      setOk(res.data?.detail || "Uzņēmums deaktivizēts.");
+      const c = await getCompanyDetail(Number(companyId));
+      if (c.ok) setCompany(c.data);
     } catch (e: any) {
       setErr(e?.message || "Failed to deactivate");
     } finally {
@@ -160,8 +80,7 @@ export default function CompanyInfo({ companyId, editable, showMenuButton }: Pro
     if (!confirm("Dzēst uzņēmumu? Šo darbību nevar atsaukt.")) return;
     try {
       setSaving(true);
-      await deleteCompany(companyId);
-      // после удаления company_admin улетит на create-company
+      await deleteMyCompany();
       nav("/app/create-company", { replace: true });
     } catch (e: any) {
       setErr(e?.message || "Failed to delete");
@@ -170,13 +89,11 @@ export default function CompanyInfo({ companyId, editable, showMenuButton }: Pro
     }
   };
 
-  // заглушка для лого — пока без реального upload endpoint
   const onLogoPick = async (file: File | null) => {
     if (!file || !editable) return;
-    setOk("Logo upload endpoint vēl nav pieslēgts (izdarīsim nākamais solis).");
+    setOk("Logo upload endpoint vēl nav pieslēgts.");
   };
 
-  if (loading) return <div className="company-info">Loading...</div>;
   if (!company) return <div className="company-info">Not found</div>;
 
   return (
@@ -199,16 +116,15 @@ export default function CompanyInfo({ companyId, editable, showMenuButton }: Pro
           <div />
         )}
       </div>
-
-      {/* layout like figma: left logo card + right form */}
+      {/* grid */}
       <div className="ci-grid">
         {/* logo card */}
         <div className="card ci-logo">
           <div className="ci-logo-box">
-            <div className="ci-logo-placeholder">☕</div>
+            <div className="ci-logo-placeholder">?</div>
 
             {editable ? (
-              <button className="ci-logo-x" type="button" aria-label="Remove logo" onClick={() => setOk("Remove logo позже.")}>
+              <button className="ci-logo-x" type="button" aria-label="Remove logo" onClick={() => setOk("Remove logo TODO.")}>
                 <X size={18} />
               </button>
             ) : null}
@@ -218,11 +134,7 @@ export default function CompanyInfo({ companyId, editable, showMenuButton }: Pro
             <label className="ci-upload">
               <UploadCloud size={18} />
               <span>Augšupielādēt jauno logo</span>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => onLogoPick(e.target.files?.[0] ?? null)}
-              />
+              <input type="file" accept="image/*" onChange={(e) => onLogoPick(e.target.files?.[0] ?? null)} />
             </label>
           ) : null}
         </div>
@@ -291,60 +203,6 @@ export default function CompanyInfo({ companyId, editable, showMenuButton }: Pro
             onChange={(e) => onChange("description", e.target.value)}
           />
         </div>
-
-        {/* working hours */}
-        <div className="card ci-hours">
-          <div className="ci-section-title">Darba laiks</div>
-
-          <div className="ci-hours-grid">
-            {WEEKDAYS.map((d) => {
-              const row = wh.find((x) => x.weekday === d.id)!;
-              const closed = row.is_closed;
-
-              return (
-                <div key={d.id} className="ci-day">
-                  <div className="ci-day-name">{d.label}</div>
-
-                  <div className="ci-day-row">
-                    <input
-                      className="ci-mini"
-                      placeholder={closed ? "Slēgts" : "No:"}
-                      type="time"
-                      value={closed ? "" : row.open_time}
-                      disabled={!editable || closed}
-                      onChange={(e) => onWHChange(d.id, { open_time: e.target.value })}
-                    />
-                    <input
-                      className="ci-mini"
-                      placeholder={closed ? "Slēgts" : "Līdz:"}
-                      type="time"
-                      value={closed ? "" : row.close_time}
-                      disabled={!editable || closed}
-                      onChange={(e) => onWHChange(d.id, { close_time: e.target.value })}
-                    />
-
-                    {editable ? (
-                      <label className="ci-closed">
-                        <input
-                          type="checkbox"
-                          checked={closed}
-                          onChange={(e) =>
-                            onWHChange(d.id, {
-                              is_closed: e.target.checked,
-                              open_time: e.target.checked ? "" : row.open_time,
-                              close_time: e.target.checked ? "" : row.close_time,
-                            })
-                          }
-                        />
-                        <span>Slēgts</span>
-                      </label>
-                    ) : null}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
       </div>
 
       {/* actions */}
@@ -388,12 +246,7 @@ function Field({
       <div className="f-label">{label}</div>
       <div className="f-field">
         <span className="f-ic left">{icon}</span>
-        <input
-          className="f-input"
-          value={value}
-          disabled={disabled}
-          onChange={(e) => onChange(e.target.value)}
-        />
+        <input className="f-input" value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} />
       </div>
     </div>
   );

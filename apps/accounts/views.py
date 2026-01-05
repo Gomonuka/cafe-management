@@ -1,3 +1,4 @@
+# apps/accounts/views.py
 from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -9,7 +10,6 @@ from apps.accounts.models import User
 from .serializers import RegisterSerializer, ProfileReadSerializer, ProfileUpdateSerializer
 from apps.accounts.models import SecretQuestion
 from .auth_views import set_jwt_cookies
-
 
 class RegisterView(generics.CreateAPIView):
     # USER_001: konta izveide (KL/UA)
@@ -39,7 +39,6 @@ class RegisterView(generics.CreateAPIView):
             status=status.HTTP_201_CREATED,
         )
 
-
 class ProfileView(APIView):
     # USER_004 + USER_005
     permission_classes = [IsAuthenticated]
@@ -55,7 +54,6 @@ class ProfileView(APIView):
         s.save()
         return Response({"code": "P_002", "detail": "Profila dati ir veiksmīgi atjaunināti."}, status=status.HTTP_200_OK)
 
-
 class DeleteMeView(APIView):
     # USER_006: dzēst savu profilu (soft-delete) + atslēgties
     permission_classes = [IsAuthenticated]
@@ -66,7 +64,6 @@ class DeleteMeView(APIView):
         # JWT gadījumā sesija ir FE pusē; pietiek ar profila deaktivizēšanu.
         return Response({"code": "P_004", "detail": "Profils ir deaktivizēts."}, status=status.HTTP_200_OK)
 
-
 class LogoutView(APIView):
     # Deprecated: header/body-based logout; paliek savietojamībai
     permission_classes = [IsAuthenticated]
@@ -74,16 +71,15 @@ class LogoutView(APIView):
     def post(self, request):
         refresh = request.data.get("refresh")
         if not refresh:
-            return Response({"detail": "Refresh token is required."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "Refresh tokens ir obligāts."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             token = RefreshToken(refresh)
             token.blacklist()
         except Exception:
-            return Response({"detail": "Invalid refresh token."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "Nederīgs refresh tokens."}, status=status.HTTP_400_BAD_REQUEST)
 
-        return Response({"detail": "Logged out."}, status=status.HTTP_200_OK)
-
+        return Response({"detail": "Izlogots."}, status=status.HTTP_200_OK)
 
 class SecretQuestionListView(generics.ListAPIView):
     permission_classes = [AllowAny]

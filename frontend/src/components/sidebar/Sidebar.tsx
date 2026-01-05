@@ -1,3 +1,4 @@
+//  frontend/src/components/sidebar/sidebar.tsx
 import { NavLink } from "react-router-dom";
 import { FiLogOut, FiUser } from "react-icons/fi";
 import { menuByRole, roleLabel, type Role } from "./sidebar.config";

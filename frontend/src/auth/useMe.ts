@@ -1,3 +1,4 @@
+//  frontend/src/auth/useMe.ts
 import { useEffect, useState } from "react";
 import { getMe } from "./auth.api";
 

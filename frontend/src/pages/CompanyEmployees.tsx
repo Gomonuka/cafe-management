@@ -1,5 +1,6 @@
+//  frontend/src/pages/CompanyEmployees.tsx
 import { useEffect, useMemo, useState } from "react";
-import { FiEdit2, FiTrash2, FiPlus } from "react-icons/fi";
+import { FiEdit2, FiTrash2 } from "react-icons/fi";
 import Card from "../components/ui/Card";
 import Input from "../components/ui/Input";
 import { FiUser, FiMail, FiLock } from "react-icons/fi";
@@ -149,7 +150,7 @@ export default function CompanyEmployees() {
         </Card>
 
         <div className="profile-card" style={{ flex: 1 }}>
-          <AvatarBlock avatarUrl={avatarUrl} onUpload={onAvatarUpload} onRemove={onAvatarRemove} />
+          <AvatarBlock avatarUrl={avatarUrl} onUpload={onAvatarUpload} />
 
           <Card>
             <Input

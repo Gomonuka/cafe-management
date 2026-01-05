@@ -1,3 +1,4 @@
+//  frontend/src/cart/CartContext.tsx
 import React, { createContext, useContext, useMemo, useState } from "react";
 import type { CartContextValue, CartItem, CartState } from "./cart.types";
 
@@ -10,7 +11,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const setCompany = (companyId: string) => {
     setCart((prev) => {
-      // если меняем компанию — очищаем, чтобы не смешивать корзины
+      // ja maina uzņēmumu — attīram, lai nesajauktu grozus
       if (prev.companyId && prev.companyId !== companyId) return { companyId, items: {} };
       return { ...prev, companyId };
     });

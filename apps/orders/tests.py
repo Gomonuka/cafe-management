@@ -1,3 +1,4 @@
+# apps/orders/tests.py
 from decimal import Decimal
 
 from django.test import TestCase
@@ -9,7 +10,6 @@ from apps.companies.models import Company
 from apps.menu.models import MenuCategory, Product
 from apps.inventory.models import InventoryItem, RecipeComponent
 from .models import Order, OrderItem
-
 
 class OrderFlowTests(TestCase):
     def setUp(self):
@@ -100,7 +100,7 @@ class OrderFlowTests(TestCase):
 
     def test_prevent_negative_stock_on_creation(self):
         self._auth(self.client_user)
-        # reduce available stock to make order impossible (needs 0.6, have 0.4)
+        # samazināt pieejamo krājumu, lai padarītu pasūtījumu neiespējamu (vajadzīgi 0,6, ir 0,4)
         self.inventory_item.quantity = Decimal("0.4")
         self.inventory_item.save(update_fields=["quantity"])
         payload = {
@@ -119,7 +119,7 @@ class OrderFlowTests(TestCase):
         self._auth(self.company_admin)
         self.order.status = Order.OrderStatus.READY
         self.order.save(update_fields=["status"])
-        # increase stock to allow completion
+        # palielināt krājumus, lai atļautu pabeigšanu
         self.inventory_item.quantity = Decimal("5.0")
         self.inventory_item.save(update_fields=["quantity"])
         resp = self.client_api.patch(
@@ -171,7 +171,7 @@ class OrderFlowTests(TestCase):
 
     def test_status_change_without_recipe_forbidden(self):
         self._auth(self.company_admin)
-        # remove recipe components
+        # noņemt parametru kopas komponentus
         self.product.recipe_components.all().delete()
         resp = self.client_api.patch(
             f"/api/orders/{self.order.id}/",
@@ -213,7 +213,7 @@ class OrderFlowTests(TestCase):
         self.inventory_item.refresh_from_db()
         self.assertEqual(self.inventory_item.quantity, Decimal("0.4"))
 
-        # cancel while NEW
+        # atcelt kad NEW
         self._auth(self.company_admin)
         resp_cancel = self.client_api.patch(
             f"/api/orders/{order_id}/",

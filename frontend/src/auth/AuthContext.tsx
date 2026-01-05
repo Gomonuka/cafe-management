@@ -1,3 +1,4 @@
+//  frontend/src/auth/AuthContext.tsx
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { User } from "../types";
 import { getMe, logout as apiLogout } from "./auth.api";

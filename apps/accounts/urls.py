@@ -1,3 +1,4 @@
+# apps/accounts/urls.py
 from django.urls import path
 from .auth_views import EmailLoginView, RefreshCookieView, LogoutCookieView
 from .views import RegisterView, ProfileView, DeleteMeView, SecretQuestionListView

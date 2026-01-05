@@ -1,3 +1,4 @@
+//  frontend/src/pages/CreateCompany.tsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Input from "../components/ui/Input";

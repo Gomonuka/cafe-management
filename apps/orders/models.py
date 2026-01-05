@@ -1,7 +1,7 @@
+# apps/orders/models.py
 from django.db import models
 from django.utils import timezone
 from django.core.exceptions import ValidationError
-
 
 class Cart(models.Model):
     # Grozs ir piesaistīts klientam un uzņēmumam
@@ -15,7 +15,6 @@ class Cart(models.Model):
 
     def __str__(self):
         return f"Cart {self.id} user={self.user_id} company={self.company_id}"
-
 
 class CartItem(models.Model):
     # Groza pozīcija: produkts + daudzums
@@ -82,7 +81,6 @@ class Order(models.Model):
 
     def __str__(self):
         return f"Order {self.id} status={self.status}"
-
 
 class OrderItem(models.Model):
     # Pasūtījuma pozīcija: produkts + daudzums + cena fiksēta uz pasūtījuma brīdi

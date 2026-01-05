@@ -1,3 +1,4 @@
+//  frontend/src/types.ts
 export type Role = "client" | "employee" | "company_admin" | "system_admin";
 
 export type User = {

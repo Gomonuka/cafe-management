@@ -1,15 +1,14 @@
+# apps/accounts/employee_serializers.py
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from apps.accounts.models import User
-
 
 class EmployeeListSerializer(serializers.ModelSerializer):
     # USER_010: darbinieku saraksts ar pamatdatiem
     class Meta:
         model = User
         fields = ["id", "username", "first_name", "last_name", "email", "avatar"]
-
 
 class EmployeeCreateSerializer(serializers.ModelSerializer):
     # USER_011: izveidot darbinieku
@@ -21,22 +20,22 @@ class EmployeeCreateSerializer(serializers.ModelSerializer):
 
     def validate_username(self, value):
         if len(value) > 255:
-            raise serializers.ValidationError("Lietotajvards nedrikst parsniegt 255 simbolus.")
+            raise serializers.ValidationError("Lietotājvārds nedrīkst pārsniegt 255 simbolus.")
         if User.objects.all_with_deleted().filter(username=value).exists():
-            raise serializers.ValidationError("Lietotajvards jau eksiste sistema.")
+            raise serializers.ValidationError("Lietotājvārds jau eksistē sistēmā.")
         return value
 
     def validate_email(self, value):
         v = value.lower().strip()
         if len(v) > 255:
-            raise serializers.ValidationError("E-pasts nedrikst parsniegt 255 simbolus.")
+            raise serializers.ValidationError("E-pasts nedrīkst pārsniegt 255 simbolus.")
         if User.objects.all_with_deleted().filter(email=v).exists():
-            raise serializers.ValidationError("E-pasts jau eksiste sistema.")
+            raise serializers.ValidationError("E-pasts jau eksistē sistēmā.")
         return v
 
     def validate_password(self, value):
         if len(value) < 8:
-            raise serializers.ValidationError("Parolei jabut vismaz 8 simbolus garai.")
+            raise serializers.ValidationError("Parolei jabūt vismaz 8 simbolus garai.")
         validate_password(value)
         return value
 
@@ -45,7 +44,7 @@ class EmployeeCreateSerializer(serializers.ModelSerializer):
         password = validated_data.pop("password")
         company = validated_data.pop("company", None) or self.context.get("company")
         if not company:
-            raise ValidationError("Company must be provided for employee creation.")
+            raise ValidationError("Darbinieku izveidei ir jānorāda uzņēmums.")
 
         user = User(**validated_data)
         user.role = User.Role.EMPLOYEE
@@ -54,7 +53,6 @@ class EmployeeCreateSerializer(serializers.ModelSerializer):
         user.set_password(password)
         user.save()
         return user
-
 
 class EmployeeUpdateSerializer(serializers.ModelSerializer):
     # USER_012: rediget darbinieku (username, vards, uzvards, email, avatar, jauna parole)
@@ -66,25 +64,25 @@ class EmployeeUpdateSerializer(serializers.ModelSerializer):
 
     def validate_username(self, value):
         if len(value) > 255:
-            raise serializers.ValidationError("Lietotajvards nedrikst parsniegt 255 simbolus.")
+            raise serializers.ValidationError("Lietotājvārds nedrīkst pārsniegt 255 simbolus.")
         qs = User.objects.all_with_deleted().filter(username=value).exclude(id=self.instance.id)
         if qs.exists():
-            raise serializers.ValidationError("Lietotajvards jau eksiste sistema.")
+            raise serializers.ValidationError("Lietotājvārds jau eksistē sistēmā.")
         return value
 
     def validate_email(self, value):
         v = value.lower().strip()
         if len(v) > 255:
-            raise serializers.ValidationError("E-pasts nedrikst parsniegt 255 simbolus.")
+            raise serializers.ValidationError("E-pasts nedrīkst pārsniegt 255 simbolus.")
         qs = User.objects.all_with_deleted().filter(email=v).exclude(id=self.instance.id)
         if qs.exists():
-            raise serializers.ValidationError("E-pasts jau eksiste sistema.")
+            raise serializers.ValidationError("E-pasts jau eksistē sistēmā.")
         return v
 
     def validate_new_password(self, value):
         if value:
             if len(value) < 8:
-                raise serializers.ValidationError("Parolei jabut vismaz 8 simbolus garai.")
+                raise serializers.ValidationError("Parolei jabūt vismaz 8 simbolus garai.")
             validate_password(value)
         return value
 

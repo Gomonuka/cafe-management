@@ -1,11 +1,11 @@
+/* Company Menu lapas stili */
 .cm{
   display:flex;
   flex-direction:column;
   gap: 14px;
-  padding-bottom: 86px; /* место под нижний бар */
+  padding-bottom: 86px;
 }
 
-/* top bar */
 .cm-top{
   display:flex;
   align-items:center;

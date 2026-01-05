@@ -1,3 +1,4 @@
+//  frontend/src/components/auth/AuthField.tsx
 import type { ReactNode } from "react";
 
 type BaseProps = {

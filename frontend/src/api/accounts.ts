@@ -1,3 +1,4 @@
+//  frontend/src/api/accounts.ts
 import { request } from "./client";
 
 export type UserRole = "client" | "employee" | "company_admin" | "system_admin";

@@ -1,3 +1,4 @@
+//  frontend/src/api/inventory.ts
 import { request } from "./client";
 
 export type InventoryItem = {

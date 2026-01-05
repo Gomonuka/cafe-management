@@ -1,3 +1,4 @@
+//  frontend/src/pages/ForgotPassword.tsx
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
@@ -20,12 +21,21 @@ export default function ForgotPassword() {
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
 
+  const translateError = (msg: unknown) => {
+    if (typeof msg === "string") {
+      if (msg.includes("Enter a valid email address")) return "Lūdzu ievadiet derīgu e-pasta adresi.";
+      if (msg.toLowerCase().includes("not found")) return "Lietotājs ar šādu e-pastu nav atrasts.";
+      return msg;
+    }
+    return JSON.stringify(msg);
+  };
+
   const submitEmail = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
     const res = await requestPasswordReset(email);
     if (!res.ok) {
-      setError(res.data?.detail || JSON.stringify(res.data));
+      setError(translateError(res.data?.detail || res.data));
       return;
     }
     setQuestion(res.data.question);
@@ -38,7 +48,7 @@ export default function ForgotPassword() {
     e.preventDefault();
     setError(null);
     if (newPass.length < 8 || newPass !== repeat) {
-      setError("Parolei jabut vismaz 8 simboliem un jāsakrīt.");
+      setError("Parolei jābūt vismaz 8 simboliem un jāsakrīt.");
       return;
     }
     const res = await confirmPasswordReset({
@@ -49,7 +59,7 @@ export default function ForgotPassword() {
       repeat_password: repeat,
     });
     if (!res.ok) {
-      setError(res.data?.detail || JSON.stringify(res.data));
+      setError(translateError(res.data?.detail || res.data));
       return;
     }
     setOk("Parole atjaunota.");

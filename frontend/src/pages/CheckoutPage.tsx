@@ -1,3 +1,4 @@
+//  frontend/src/pages/CheckoutPage.tsx
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { FiMinus, FiPlus, FiTrash2, FiEdit3 } from "react-icons/fi";

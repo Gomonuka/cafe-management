@@ -1,12 +1,13 @@
+# apps/menu/models.py
 from django.db import models
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
 
-
 def product_photo_path(instance, filename: str) -> str:
-    return f"products/{instance.company_id}/{instance.id}/{filename}"
+    # Saglabājam pēc company_id; nelietojam instance.id, lai ceļš neveidotos ar None pirms pirmā saglabāšanas cikla
+    return f"products/{instance.company_id}/{filename}"
 
 
 def validate_image_file(file_obj):
@@ -33,7 +34,6 @@ class MenuCategory(models.Model):
 
     def __str__(self):
         return f"{self.company_id}: {self.name}"
-
 
 class Product(models.Model):
     # Produkts pieder uzņēmumam un kategorijai
@@ -63,7 +63,6 @@ class Product(models.Model):
 
     def __str__(self):
         return f"{self.company_id}: {self.name}"
-
 
 class RecipeItem(models.Model):
     # Produkta recepte: sastāvdaļa no noliktavas + daudzums uz 1 vienību

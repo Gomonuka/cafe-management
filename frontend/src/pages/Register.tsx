@@ -1,3 +1,4 @@
+// Register.tsx
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
@@ -30,7 +31,7 @@ export default function Register() {
   const [show, setShow] = useState(false);
   const [autoLogin, setAutoLogin] = useState(true);
   const [questions, setQuestions] = useState<Array<{ id: number; text: string }>>([]);
-  const [questionId, setQuestionId] = useState<number | "">("");
+  const [questionId, setQuestionId] = useState<string>("");
   const [answer, setAnswer] = useState("");
 
   const [error, setError] = useState<string | null>(null);
@@ -62,7 +63,7 @@ export default function Register() {
       password,
       role,
       auto_login: autoLogin,
-      secret_question: questionId as number,
+      secret_question: Number(questionId),
       secret_answer: answer,
     });
     if (!res.ok) {
@@ -110,8 +111,8 @@ export default function Register() {
           kind="select"
           leftIcon={<FiLock />}
           value={questionId}
-          onChange={(v) => setQuestionId(Number(v))}
-          options={[{ value: "", label: "Izvēlies slepeno jautājumu" }, ...questions.map((q) => ({ value: q.id, label: q.text }))]}
+          onChange={(v) => setQuestionId(v)}
+          options={[{ value: "", label: "Izvēlies slepeno jautājumu" }, ...questions.map((q) => ({ value: q.id.toString(), label: q.text }))]}
           rightIcon={<FiChevronDown />}
         />
         <AuthField leftIcon={<FiLock />} placeholder="Slepenā atbilde" value={answer} onChange={setAnswer} />

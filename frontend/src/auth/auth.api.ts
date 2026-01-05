@@ -1,3 +1,4 @@
+//  frontend/src/auth/auth.api.ts
 import { request } from "../api/client";
 
 export async function register(payload: {

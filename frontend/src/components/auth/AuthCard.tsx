@@ -1,3 +1,4 @@
+//  frontend/src/components/auth/AuthCard.tsx
 import type { ReactNode } from "react";
 import logo from "../../assets/crms-logo-1.png";
 

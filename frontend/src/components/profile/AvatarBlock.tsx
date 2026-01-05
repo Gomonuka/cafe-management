@@ -1,3 +1,4 @@
+//  frontend/src/components/profile/AvatarBlock.tsx
 import { useRef } from "react";
 import { FiUploadCloud } from "react-icons/fi";
 import Card from "../ui/Card";

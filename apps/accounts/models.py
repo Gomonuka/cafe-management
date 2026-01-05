@@ -1,11 +1,11 @@
+# apps/accounts/models.py
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 from .managers import UserManager
 
-# 50MB
-MAX_FILE_SIZE = 50 * 1024 * 1024
+MAX_FILE_SIZE = 50 * 1024 * 1024 # 50 MB
 
 def user_photo_path(instance, filename: str) -> str:
     return f"users/{instance.id}/{filename}"
@@ -63,7 +63,6 @@ class User(AbstractUser):
     @property
     def is_deleted(self) -> bool:
         return self.deleted_at is not None
-
 
 class SecretQuestion(models.Model):
     text = models.CharField(max_length=255, unique=True)

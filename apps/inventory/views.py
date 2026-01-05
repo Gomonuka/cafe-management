@@ -1,3 +1,4 @@
+# apps/inventory/views.py
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -13,7 +14,6 @@ from .serializers import (
     InventoryUpdateAdminSerializer,
     InventoryUpdateEmployeeSerializer,
 )
-
 
 class InventoryListView(APIView):
     """
@@ -31,7 +31,6 @@ class InventoryListView(APIView):
         # Always return a list (even empty) so the UI remains stable
         return Response(data, status=status.HTTP_200_OK)
 
-
 class InventoryCreateView(APIView):
     """
     INV_002: pievienot jaunu noliktavas vienību (UA)
@@ -47,13 +46,12 @@ class InventoryCreateView(APIView):
         s.is_valid(raise_exception=True)
 
         if InventoryItem.objects.filter(company_id=user.company_id, name__iexact=s.validated_data["name"]).exists():
-            return Response({"detail": "Name already exists in inventory."},
+            return Response({"detail": "Noliktavas vienība ar šādu nosaukumu jau eksistē."},
                             status=status.HTTP_400_BAD_REQUEST)
 
         InventoryItem.objects.create(company_id=user.company_id, **s.validated_data)
         return Response({"code": "P_001", "detail": "Noliktavas vienība ir izveidota."},
                         status=status.HTTP_201_CREATED)
-
 
 class InventoryUpdateView(APIView):
     """
@@ -79,7 +77,7 @@ class InventoryUpdateView(APIView):
                 company_id=user.company_id, name__iexact=incoming_name
             ).exclude(id=item_id).exists():
                 return Response(
-                    {"detail": "Name already exists in inventory."},
+                    {"detail": "Noliktavas vienība ar šādu nosaukumu jau eksistē."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             s = InventoryUpdateAdminSerializer(instance=item, data=request.data)
@@ -92,7 +90,6 @@ class InventoryUpdateView(APIView):
 
         return Response({"code": "P_002", "detail": "Noliktavas vienība ir atjaunināta."},
                         status=status.HTTP_200_OK)
-
 
 class InventoryDeleteView(APIView):
     """

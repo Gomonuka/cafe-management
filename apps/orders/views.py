@@ -1,3 +1,4 @@
+# apps/orders/views.py
 from decimal import Decimal
 from django.db import transaction
 from django.utils import timezone
@@ -26,11 +27,9 @@ from .serializers import (
     OrderStatusChangeSerializer,
 )
 
-
 def _client_can_order_company(company_id: int) -> bool:
     # Klients var pasūtīt tikai aktīvā, nebloķētā, ne soft-deleted uzņēmumā
     return Company.objects.filter(id=company_id, deleted_at__isnull=True, is_active=True, is_blocked=False).exists()
-
 
 def _calc_cart_total(cart: Cart) -> Decimal:
     # Aprēķina groza kopējo summu
@@ -38,7 +37,6 @@ def _calc_cart_total(cart: Cart) -> Decimal:
     for item in cart.items.select_related("product").all():
         total += (item.product.price * item.quantity)
     return total
-
 
 class CartView(APIView):
     """
@@ -118,7 +116,6 @@ class CartView(APIView):
             status=status.HTTP_200_OK,
         )
 
-
 class CheckoutView(APIView):
     """
     ORDER_008: noformēt pasūtījumu
@@ -185,7 +182,6 @@ class CheckoutView(APIView):
         return Response({"code": "P_001", "detail": "Pasūtījums ir izveidots.", "order_id": order.id},
                         status=status.HTTP_201_CREATED)
 
-
 class ClientOrdersView(APIView):
     """
     ORDER_003: apskatīt savus pasūtījumus (aktīvie + pabeigtie)
@@ -209,7 +205,6 @@ class ClientOrdersView(APIView):
             status=status.HTTP_200_OK,
         )
 
-
 class CancelOrderView(APIView):
     """
     ORDER_002: atcelt savu pasūtījumu (tikai, ja statuss 'Jauns')
@@ -231,7 +226,6 @@ class CancelOrderView(APIView):
 
         return Response({"code": "P_014", "detail": "Pasūtījums ir atcelts."},
                         status=status.HTTP_200_OK)
-
 
 class CompanyOrdersKanbanView(APIView):
     """
@@ -261,7 +255,6 @@ class CompanyOrdersKanbanView(APIView):
             status=status.HTTP_200_OK,
         )
 
-
 class CompanyOrderDetailView(APIView):
     """
     ORDER_006: apskatīt pasūtījuma detaļas (UA/DA)
@@ -281,7 +274,6 @@ class CompanyOrderDetailView(APIView):
 
         # Atgriež detalizētu info (līdzīgs klienta serializer, bet der arī darbiniekiem)
         return Response(OrderClientSerializer(order).data, status=status.HTTP_200_OK)
-
 
 class ChangeOrderStatusView(APIView):
     """
@@ -318,7 +310,6 @@ class ChangeOrderStatusView(APIView):
 
         order.save(update_fields=["status", "completed_at"])
         return Response({"detail": "Statuss atjaunināts."}, status=status.HTTP_200_OK)
-
 
 class CompanyOrderStatsView(APIView):
     """

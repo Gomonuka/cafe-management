@@ -1,3 +1,4 @@
+// RequireAuth.tsx
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useMe } from "../auth/useMe";
 

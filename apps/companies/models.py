@@ -1,9 +1,9 @@
+# apps/companies/models.py
 from django.db import models
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
-
 
 def company_logo_path(instance, filename: str) -> str:
     return f"companies/{instance.id}/{filename}"

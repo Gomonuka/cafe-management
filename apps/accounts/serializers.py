@@ -1,3 +1,4 @@
+# apps/accounts/serializers.py
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.hashers import make_password, check_password
 from django.utils.http import urlsafe_base64_decode
@@ -5,7 +6,6 @@ from rest_framework import serializers
 
 from apps.accounts.models import User, SecretQuestion
 from .password_reset import token_generator
-
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
@@ -20,28 +20,28 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     def validate_username(self, value):
         if len(value) > 255:
-            raise serializers.ValidationError("Lietotajvards nedrikst parsniegt 255 simbolus.")
+            raise serializers.ValidationError("Lietotājvārds nedrīkst pārsniegt 255 simbolus.")
         if User.objects.all_with_deleted().filter(username=value).exists():
-            raise serializers.ValidationError("Lietotajvards jau eksiste sistema.")
+            raise serializers.ValidationError("Lietotājvārds jau eksistē sistēmā.")
         return value
 
     def validate_email(self, value):
         v = value.lower().strip()
         if len(v) > 255:
-            raise serializers.ValidationError("E-pasts nedrikst parsniegt 255 simbolus.")
+            raise serializers.ValidationError("E-pasts nedrīkst pārsniegt 255 simbolus.")
         if User.objects.all_with_deleted().filter(email=v).exists():
-            raise serializers.ValidationError("E-pasts jau eksiste sistema.")
+            raise serializers.ValidationError("E-pasts jau eksistē sistēmā.")
         return v
 
     def validate_password(self, value):
         if len(value) < 8:
-            raise serializers.ValidationError("Parolei jabut vismaz 8 simbolus garai.")
+            raise serializers.ValidationError("Parolei jābūt vismaz 8 simbolus garai.")
         validate_password(value)
         return value
 
     def validate_secret_answer(self, value):
         if not value or len(value) > 255:
-            raise serializers.ValidationError("Slepena atbilde ir obligata un lidz 255 simboliem.")
+            raise serializers.ValidationError("Slepenā atbilde ir obligāta un līdz 255 simboliem.")
         return value
 
     def create(self, validated_data):
@@ -53,12 +53,11 @@ class RegisterSerializer(serializers.ModelSerializer):
         user.is_active = True
         user.set_password(password)
         user.secret_answer = make_password(secret_answer)
-        user.profile_completed = True  # registration collects required fields
+        user.profile_completed = True  # kad slepenais jautājums un atbilde ir iestatīti
         user.save()
 
         user._auto_login = auto_login
         return user
-
 
 class ProfileReadSerializer(serializers.ModelSerializer):
     secret_question_text = serializers.CharField(source="secret_question.text", read_only=True)
@@ -93,7 +92,6 @@ class ProfileReadSerializer(serializers.ModelSerializer):
     def get_has_secret_answer(self, obj):
         return bool(obj.secret_answer)
 
-
 class ProfileUpdateSerializer(serializers.ModelSerializer):
     new_password = serializers.CharField(write_only=True, required=False, allow_blank=True)
     repeat_password = serializers.CharField(write_only=True, required=False, allow_blank=True)
@@ -118,19 +116,19 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
 
     def validate_username(self, value):
         if len(value) > 255:
-            raise serializers.ValidationError("Lietotajvards nedrikst parsniegt 255 simbolus.")
+            raise serializers.ValidationError("Lietotājvārds nedrīkst pārsniegt 255 simbolus.")
         qs = User.objects.all_with_deleted().filter(username=value).exclude(id=self.instance.id)
         if qs.exists():
-            raise serializers.ValidationError("Lietotajvards jau eksiste sistema.")
+            raise serializers.ValidationError("Lietotājvārds jau eksistē sistēmā.")
         return value
 
     def validate_email(self, value):
         v = value.lower().strip()
         if len(v) > 255:
-            raise serializers.ValidationError("E-pasts nedrikst parsniegt 255 simbolus.")
+            raise serializers.ValidationError("E-pasts nedrīkst pārsniegt 255 simbolus.")
         qs = User.objects.all_with_deleted().filter(email=v).exclude(id=self.instance.id)
         if qs.exists():
-            raise serializers.ValidationError("E-pasts jau eksiste sistema.")
+            raise serializers.ValidationError("E-pasts jau eksistē sistēmā.")
         return v
 
     def validate(self, attrs):
@@ -141,20 +139,20 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
 
         if new_password:
             if len(new_password) < 8:
-                raise serializers.ValidationError({"new_password": "Parolei jabut vismaz 8 simbolus garai."})
+                raise serializers.ValidationError({"new_password": "Parolei jābūt vismaz 8 simbolus garai."})
             if not repeat_password:
-                raise serializers.ValidationError({"repeat_password": "Atkartota parole ir obligata."})
+                raise serializers.ValidationError({"repeat_password": "Atkartotā parole ir obligāta."})
             if new_password != repeat_password:
-                raise serializers.ValidationError({"repeat_password": "Atkartota parole nesakrit ar jauno paroli."})
+                raise serializers.ValidationError({"repeat_password": "Atkartotā parole nesakrīt ar jauno paroli."})
             validate_password(new_password)
 
         # secret question/answer: atbilde obligata tikai, ja maina jautajumu vai atbilde tuksa
         if secret_question is not None:
             is_question_changed = self.instance.secret_question_id != getattr(secret_question, "id", None)
             if (is_question_changed or not self.instance.secret_answer) and not secret_answer:
-                raise serializers.ValidationError({"secret_answer": "Slepena atbilde ir obligata."})
+                raise serializers.ValidationError({"secret_answer": "Slepenā atbilde ir obligāta."})
         if secret_answer and len(secret_answer) > 255:
-            raise serializers.ValidationError({"secret_answer": "Slepena atbilde nedrikst parsniegt 255 simbolus."})
+            raise serializers.ValidationError({"secret_answer": "Slepenā atbilde nedrīkst pārsniegt 255 simbolus."})
 
         return attrs
 
@@ -178,7 +176,6 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
         instance.save()
         return instance
 
-
 class PasswordResetRequestSerializer(serializers.Serializer):
     email = serializers.EmailField()
 
@@ -192,10 +189,9 @@ class PasswordResetRequestSerializer(serializers.Serializer):
         if user.is_blocked:
             raise serializers.ValidationError({"code": "P_018", "detail": "Lietotāja profils ir bloķēts."})
         if not user.secret_question or not user.secret_answer:
-            raise serializers.ValidationError({"detail": "Slepenais jautajums nav iestatits."})
+            raise serializers.ValidationError({"detail": "Slepenais jautājums nav iestatīts."})
         self.context["user"] = user
         return email
-
 
 class PasswordResetConfirmSerializer(serializers.Serializer):
     uid = serializers.CharField()
@@ -212,24 +208,23 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
         repeat_password = attrs["repeat_password"]
 
         if len(new_password) < 8:
-            raise serializers.ValidationError({"new_password": "Parolei jabut vismaz 8 simbolus garai."})
+            raise serializers.ValidationError({"new_password": "Parolei jābūt vismaz 8 simbolus garai."})
         if new_password != repeat_password:
-            raise serializers.ValidationError({"repeat_password": "Atkartota parole nesakrit ar jauno paroli."})
+            raise serializers.ValidationError({"repeat_password": "Atkartotā parole nesakrīt ar jauno paroli."})
 
         try:
             user_id = urlsafe_base64_decode(uid).decode()
         except Exception:
-            raise serializers.ValidationError({"detail": "Nederigs UID."})
+            raise serializers.ValidationError({"detail": "Nederīgs UID."})
 
         user = User.objects.all_with_deleted().filter(id=user_id, deleted_at__isnull=True, is_active=True).first()
         if not user:
-            raise serializers.ValidationError({"detail": "Lietotajs nav atrasts."})
-
+            raise serializers.ValidationError({"detail": "Lietotājs nav atrasts."})
         if not token_generator.check_token(user, token):
-            raise serializers.ValidationError({"detail": "Nederigs vai beidzies tokens."})
+            raise serializers.ValidationError({"detail": "Nederīgs vai beidzies tokens."})
 
         if not check_password(answer, user.secret_answer):
-            raise serializers.ValidationError({"detail": "Slepena atbilde ir nepareiza."})
+            raise serializers.ValidationError({"detail": "Slepenā atbilde ir nepareiza."})
 
         validate_password(new_password)
         attrs["user"] = user

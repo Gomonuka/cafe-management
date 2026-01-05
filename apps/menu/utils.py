@@ -1,7 +1,7 @@
+# apps/menu/utils.py
 import json
 import re
 from rest_framework.exceptions import ValidationError
-
 
 def _parse_flat_recipe_fields(data):
     """

@@ -1,3 +1,4 @@
+//  frontend/src/pages/Companies.tsx
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FiMapPin, FiSearch, FiImage, FiType } from "react-icons/fi";
@@ -92,8 +93,8 @@ export default function Companies() {
             <div className="select-with-icon">
               <FiType className="select-icon" />
               <select value={sort} onChange={(e) => setSort(e.target.value as "asc" | "desc")} className="select-input has-icon">
-                <option value="asc">A–Ž</option>
-                <option value="desc">Ž–A</option>
+                <option value="asc">A-Ž</option>
+                <option value="desc">Ž-A</option>
               </select>
             </div>
           </div>

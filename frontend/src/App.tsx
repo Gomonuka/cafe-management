@@ -1,3 +1,4 @@
+//  frontend/src/App.tsx
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "./auth/AuthContext";
 
@@ -36,7 +37,8 @@ function AppHomeRedirect() {
     case "employee":
       return <Navigate to="/app/orders" replace />;
     case "company_admin":
-      return <Navigate to="/app/admin" replace />;
+      if (!user.company) return <Navigate to="/app/create-company" replace />;
+      return <Navigate to="/app/my-company" replace />;
     case "client":
     default:
       return <Navigate to="/app/companies" replace />;
@@ -54,24 +56,30 @@ export default function App() {
       {/* ---------- PROTECTED ---------- */}
       <Route element={<RequireAuth />}>
         <Route element={<AppLayout />}>
-          {/* Admin area (only system admins) */}
+          {/* Sistēmas administratora apgabals */}
           <Route element={<RequireRoles allowed={["system_admin"]} />}>
             <Route path="/app/admin/users" element={<AdminUsers />} />
             <Route path="/app/admin/companies" element={<AdminCompanies />} />
           </Route>
 
-          {/* Companies browsing */}
+          {/* Uzņēmumu pārlūkošana (klienti) */}
           <Route element={<RequireRoles allowed={["client"]} />}>
             <Route path="/app/companies" element={<Companies />} />
             <Route path="/app/companies/:id" element={<CompanyDetail />} />
             <Route path="/app/companies/:id/menu" element={<CompanyMenu />} />
             <Route path="/app/companies/:id/checkout" element={<CheckoutPage />} />
-            <Route path="/app/create-company" element={<CreateCompany />} />
             <Route path="/app/orders" element={<MyOrders />} />
           </Route>
-          {/* Profile accessible to all */}
+
+          {/* Uzņēmuma izveide (company_admin bez uzņēmuma) */}
+          <Route element={<RequireRoles allowed={["company_admin"]} />}>
+            <Route path="/app/create-company" element={<CreateCompany />} />
+          </Route>
+
+          {/* Profila sadaļa pieejama visiem */}
           <Route path="/app/profile" element={<Profile />} />
-          {/* Company-bound area */}
+
+          {/* Uzņēmuma sadaļa */}
           <Route element={<RequireCompany />}>
             <Route path="/app/my-company" element={<MyCompany />} />
             <Route path="/app/company/employees" element={<CompanyEmployees />} />

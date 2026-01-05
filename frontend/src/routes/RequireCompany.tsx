@@ -1,3 +1,4 @@
+// RequireCompany.tsx
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useMe } from "../auth/useMe";
 
@@ -7,12 +8,12 @@ export default function RequireCompany() {
 
   if (loading) return <div style={{ padding: 24 }}>Loading…</div>;
 
-  // на всякий: если кто-то сюда попал без логина
+  // ja kāds šeit nokļuvis bez pieteikšanās
   if (!user) return <Navigate to="/login" replace state={{ from: loc.pathname }} />;
 
-  // только company_admin обязан иметь company
+  // tikai company_admin ir jābūt company
   if (user.role === "company_admin" && !user.company) {
-    // чтобы не было редирект-лупа
+    // lai nebūtu redirect loopa
     if (loc.pathname !== "/app/create-company") {
       return <Navigate to="/app/create-company" replace />;
     }

@@ -1,7 +1,7 @@
 import re
 from rest_framework import serializers
-from .models import Company
 
+from .models import Company
 
 PHONE_RE = re.compile(r"^\+\d[\d\s\-]{6,20}$")  # vienkārša validācija ar valsts kodu
 
@@ -16,6 +16,13 @@ class CompanyPublicSerializer(serializers.ModelSerializer):
 
     def get_open_now(self, obj: Company) -> bool:
         return obj.is_open_now()
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get("request")
+        if data.get("logo") and request is not None:
+            data["logo"] = request.build_absolute_uri(data["logo"])
+        return data
 
 
 class CompanyAdminListSerializer(serializers.ModelSerializer):
@@ -56,9 +63,17 @@ class CompanyDetailSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["is_blocked", "deleted_at"]
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get("request")
+        if data.get("logo") and request is not None:
+            data["logo"] = request.build_absolute_uri(data["logo"])
+        return data
+
 
 class CompanyCreateUpdateSerializer(serializers.ModelSerializer):
     address_line = serializers.CharField(source="address_line1")
+    logo = serializers.ImageField(required=False, allow_null=True)
 
     class Meta:
         model = Company
@@ -73,6 +88,20 @@ class CompanyCreateUpdateSerializer(serializers.ModelSerializer):
             "logo",
             "is_active",
         ]
+        extra_kwargs = {"logo": {"required": False}}
+
+    def to_internal_value(self, data):
+        """
+        Ja logo lauks ir tukšs vai teksts, ignorējam to, lai DRF necenšas validēt kā attēlu.
+        """
+        data = data.copy()
+        if "logo" in data:
+            val = data.get("logo")
+            if val in ("", None, "null"):
+                data.pop("logo")
+            elif isinstance(val, str):
+                data.pop("logo")
+        return super().to_internal_value(data)
 
     def validate_name(self, value):
         if not value or len(value) > 255:
@@ -110,6 +139,13 @@ class CompanyCreateUpdateSerializer(serializers.ModelSerializer):
         return value
 
     def validate_logo(self, value):
-        if not value:
-            raise serializers.ValidationError("Uzņēmuma logotips ir obligāts.")
-        return value
+        if value:
+            return value
+        if self.instance:
+            return getattr(self.instance, "logo", None)
+        raise serializers.ValidationError("Uzņēmuma logotips ir obligāts.")
+
+    def validate(self, attrs):
+        if not self.instance and "logo" not in attrs:
+            raise serializers.ValidationError({"logo": "Uzņēmuma logotips ir obligāts."})
+        return attrs

@@ -1,3 +1,4 @@
+﻿//  frontend/src/pages/MenuAdmin.tsx
 import { useEffect, useState } from "react";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
@@ -37,10 +38,9 @@ export default function MenuAdmin() {
   const [recipes, setRecipes] = useState<
     Record<number, { loading: boolean; rows: Array<{ inventory_item_id: number; inventory_item_name: string; amount: string }> }>
   >({});
-  const [catForm, setCatForm] = useState<{ id?: number; name: string; description: string; is_active: boolean }>({
+  const [catForm, setCatForm] = useState<{ id?: number; name: string; description: string }>({
     name: "",
     description: "",
-    is_active: true,
   });
   const [prodForm, setProdForm] = useState<{
     id?: number;
@@ -55,6 +55,7 @@ export default function MenuAdmin() {
     category: "",
     price: "",
     is_available: true,
+    recipe: [],
   });
   const [recipeForm, setRecipeForm] = useState<{ productId: number | ""; recipe: Array<{ inventory_item_id: number | ""; amount: number | "" }> }>({
     productId: "",
@@ -66,7 +67,7 @@ export default function MenuAdmin() {
   const load = async () => {
     setError(null);
     if (!user?.company) {
-      setError("Nav piesaistīts uzņēmums.");
+      setError("Nav piesaistīts uzņēmumam.");
       return;
     }
     const res = await fetchMenuAdmin(user.company);
@@ -84,8 +85,8 @@ export default function MenuAdmin() {
     void load();
   }, [user?.company]);
 
-  const resetCat = () => setCatForm({ name: "", description: "", is_active: true, id: undefined });
-  const resetProd = () => setProdForm({ name: "", category: "", price: "", is_available: true });
+  const resetCat = () => setCatForm({ name: "", description: "", id: undefined });
+  const resetProd = () => setProdForm({ name: "", category: "", price: "", is_available: true, recipe: [] });
   const resetRecipe = () => setRecipeForm({ productId: "", recipe: [] });
 
   const showRecipe = async (productId: number) => {
@@ -101,8 +102,9 @@ export default function MenuAdmin() {
 
   const submitCategory = async () => {
     setMessage(null);
-    if (catForm.id) await updateCategory(catForm.id, catForm);
-    else await createCategory(catForm);
+    const payload = { ...catForm, is_active: true };
+    if (catForm.id) await updateCategory(catForm.id, payload);
+    else await createCategory(payload);
     resetCat();
     await load();
   };
@@ -143,7 +145,7 @@ export default function MenuAdmin() {
     recipeForm.recipe.every((r) => r.inventory_item_id && r.amount);
 
   const isAdmin = user?.role === "company_admin";
-  if (!isAdmin) return <div style={{ padding: 12 }}>Piekļuve ir liegta.</div>;
+  if (!isAdmin) return <div style={{ padding: 12 }}>PiekÄ¼uve ir liegta.</div>;
 
   return (
     <div className="profile-wrap" style={{ alignItems: "stretch" }}>
@@ -159,8 +161,8 @@ export default function MenuAdmin() {
           <div>ID</div>
           <div>Nosaukums</div>
           <div className="admin-cat-head-actions">
-            <span>Rediģēt</span>
-            <span>Dzēst</span>
+            <span>RediÄ£Ä“t</span>
+            <span>DzÄ“st</span>
           </div>
         </div>
         <div className="admin-cat-list">
@@ -172,7 +174,7 @@ export default function MenuAdmin() {
                 <Button
                   variant="ghost"
                   className="admin-icon-btn admin-icon-edit"
-                  onClick={() => setCatForm({ id: c.id, name: c.name, description: "", is_active: true })}
+                  onClick={() => setCatForm({ id: c.id, name: c.name, description: "" })}
                 >
                   <FiEdit2 />
                 </Button>
@@ -196,14 +198,6 @@ export default function MenuAdmin() {
             onChange={(v) => setCatForm((p) => ({ ...p, description: v }))}
             multiline
           />
-          <label className="admin-check">
-            <input
-              type="checkbox"
-              checked={catForm.is_active}
-              onChange={(e) => setCatForm((p) => ({ ...p, is_active: e.target.checked }))}
-            />
-            Aktīva
-          </label>
           <div className="admin-actions">
             <Button variant="primary" onClick={submitCategory} className="admin-btn">
               {catForm.id ? "Atjaunināt kategoriju" : "Izveidot kategoriju"}
@@ -238,7 +232,7 @@ export default function MenuAdmin() {
                   <div className="admin-product-name">{p.name}</div>
                   <div className="admin-product-meta">Pieejams: {p.available_quantity ?? 0}</div>
                 </div>
-                <div className="admin-product-price">{p.price} €</div>
+                <div className="admin-product-price">{p.price} € </div>
                 <div className="admin-product-badges">
                   <span className={`badge ${p.is_available ? "green" : "red"}`}>{p.is_available ? "Pieejams" : "Nav pieejams"}</span>
                 </div>
@@ -253,6 +247,7 @@ export default function MenuAdmin() {
                         price: p.price || "",
                         category: p.category_id ?? "",
                         is_available: p.is_available ?? true,
+                        recipe: []
                       })
                     }
                     aria-label="Rediģēt"
@@ -331,7 +326,7 @@ export default function MenuAdmin() {
               {prodForm.id ? "Atjaunināt produktu" : "Izveidot produktu"}
             </Button>
             <Button variant="ghost" onClick={resetProd} className="admin-btn">
-              Notīrīt
+              NotÄ«rÄ«t
             </Button>
           </div>
         </div>
@@ -380,7 +375,7 @@ export default function MenuAdmin() {
 
           {recipeForm.productId && (
             <div className="profile-section">
-              <h4>Recepte (noliktavas sastāvdaļas)</h4>
+              <h4>Recepte (noliktavas sastÄvdaÄ¼as)</h4>
               {recipeForm.recipe.map((r, idx) => (
                 <div key={idx} style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto", gap: 8, marginBottom: 8 }}>
                   <select
@@ -421,7 +416,7 @@ export default function MenuAdmin() {
                       }))
                     }
                   >
-                    Dzēst
+                    DzÄ“st
                   </Button>
                 </div>
               ))}
@@ -434,7 +429,7 @@ export default function MenuAdmin() {
                   }))
                 }
               >
-                + Pievienot sastāvdaļu
+                + Pievienot sastāvu
               </Button>
             </div>
           )}
@@ -453,7 +448,7 @@ export default function MenuAdmin() {
                   .map((r) => ({ inventory_item_id: Number(r.inventory_item_id), amount: Number(r.amount) }))
                   .filter((r) => Number.isFinite(r.inventory_item_id) && r.inventory_item_id > 0 && Number.isFinite(r.amount) && r.amount > 0);
                 if (cleaned.length === 0) {
-                  setError("Recepte ir obligāta: izvēlies sastāvdaļas un daudzumu.");
+                  setError("Recepte ir obligāta: izvēlies sastāvu un daudzumu.");
                   return;
                 }
                 const res = await updateProductRecipe(recipeForm.productId as number, cleaned);
@@ -478,3 +473,4 @@ export default function MenuAdmin() {
     </div>
   );
 }
+

@@ -1,3 +1,4 @@
+//  frontend/src/pages/Login.tsx
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
@@ -20,7 +21,7 @@ export default function Login() {
     if (!data) return "Login failed";
     if (typeof data === "string") return data;
     if (typeof data === "object") {
-      // предпочитаем detail, иначе code, иначе распакуем первую пару
+      // dodam priekšroku detail, citādi code, citādi izsaiņosim pirmo pāri
       if (data.detail) return Array.isArray(data.detail) ? data.detail.join(" ") : String(data.detail);
       if (data.code) return Array.isArray(data.code) ? data.code.join(" ") : String(data.code);
       const entries = Object.entries(data);

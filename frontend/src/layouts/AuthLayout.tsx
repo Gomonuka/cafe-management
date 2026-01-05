@@ -1,3 +1,4 @@
+//  frontend/src/layouts/AuthLayout.tsx
 import type { ReactNode } from "react";
 import "../styles/auth.css";
 

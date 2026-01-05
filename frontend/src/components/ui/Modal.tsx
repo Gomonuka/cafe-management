@@ -1,3 +1,4 @@
+//  frontend/src/components/ui/Modal.tsx
 import type { ReactNode } from "react";
 import "../../styles/ui.css";
 

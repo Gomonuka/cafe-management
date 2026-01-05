@@ -1,3 +1,4 @@
+//  frontend/src/pages/Inventory.tsx
 import { useEffect, useMemo, useState } from "react";
 import { FiEdit2, FiTrash2 } from "react-icons/fi";
 import Card from "../components/ui/Card";
@@ -32,6 +33,23 @@ export default function Inventory() {
   });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+
+   const formatError = (data: any): string => {
+    if (!data) return "Nezināma kļūda.";
+    if (typeof data === "string") return data;
+    if (typeof data.detail === "string") return data.detail;
+    if (typeof data === "object") {
+      const parts: string[] = [];
+      Object.entries(data).forEach(([k, v]) => {
+        const humanKey =
+          k === "name" ? "Nosaukums" : k === "quantity" ? "Daudzums" : k === "unit" ? "Mērvienība" : k;
+        if (Array.isArray(v)) parts.push(`${humanKey}: ${v.join(" ")}`);
+        else if (typeof v === "string") parts.push(`${humanKey}: ${v}`);
+      });
+      if (parts.length) return parts.join("; ");
+    }
+    return "Nezināma kļūda.";
+  };
 
   const load = async () => {
     setLoading(true);
@@ -156,7 +174,7 @@ export default function Inventory() {
       </Card>
 
       {isAdmin && (
-        <Card style={{ marginTop: 12 }} className="inventory-shell">
+        <Card className="inventory-shell">
           <div className="block-title">Pievienot jaunu vienību</div>
           <div className="inventory-form">
             <Input label="Nosaukums" value={createForm.name} onChange={(v) => setCreateForm((p) => ({ ...p, name: v }))} />
@@ -177,7 +195,7 @@ export default function Inventory() {
       )}
 
       {canEdit && selected && (
-        <Card style={{ marginTop: 12 }} className="inventory-shell">
+        <Card className="inventory-shell">
           <div className="block-title">{isAdmin ? "Rediģēt vienību" : "Rediģēt atlikumu"}</div>
           <div className="inventory-form">
             <Input

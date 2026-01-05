@@ -1,4 +1,5 @@
-import { FiCoffee, FiClipboard, FiUsers, FiHome, FiUser, FiArchive } from "react-icons/fi";
+//  frontend/src/components/sidebar/sidebar.config.ts
+import { FiCoffee, FiClipboard, FiUsers, FiHome, FiArchive } from "react-icons/fi";
 
 export type Role = "client" | "employee" | "company_admin" | "system_admin";
 

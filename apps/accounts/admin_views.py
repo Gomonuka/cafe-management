@@ -1,3 +1,4 @@
+# apps/accounts/admin_views.py
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -7,7 +8,6 @@ from apps.accounts.models import User
 from .permissions import IsSystemAdmin
 from .admin_serializers import AdminUserListSerializer
 
-
 class AdminUserListView(generics.ListAPIView):
     # USER_008: visi lietotāji (neiekļauj soft-deleted)
     permission_classes = [IsAuthenticated, IsSystemAdmin]
@@ -15,7 +15,6 @@ class AdminUserListView(generics.ListAPIView):
 
     def get_queryset(self):
         return User.objects.all_with_deleted().filter(deleted_at__isnull=True, is_active=True)
-
 
 class AdminUserSoftDeleteView(APIView):
     # USER_009: soft-delete lietotāju
@@ -28,7 +27,6 @@ class AdminUserSoftDeleteView(APIView):
 
         user.soft_delete()
         return Response({"code": "P_004", "detail": "Lietotājs ir deaktivizēts."}, status=status.HTTP_200_OK)
-
 
 class AdminUserBlockView(APIView):
     # USER_014: bloķēt/atbloķēt lietotāju (toggle)

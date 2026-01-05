@@ -1,3 +1,4 @@
+//  frontend/src/components/auth/AuthMessage.tsx
 const translate = (msg: string): string => {
   switch (msg) {
     case "This field may not be blank.":

@@ -1,7 +1,7 @@
+// frontend/src/api/client.ts
 import axios from "axios";
 import type { AxiosError, AxiosRequestConfig } from "axios";
 
-// Backend URL bez papildu /api prefiksa (Django ceļi sākas ar /accounts/, /companies/ u.c.)
 const BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
 export const api = axios.create({
@@ -37,7 +37,6 @@ export async function request<T = any>(config: Parameters<typeof api.request>[0]
     if (axios.isAxiosError(err) && err.response) {
       return { ok: false, data: err.response.data, status: err.response.status };
     }
-    // вместо проглатывания — вернуть понятную ошибку, чтобы отрисовать её
     return { ok: false, data: "Nezināma kļūda.", status: 0 };
   }
 }

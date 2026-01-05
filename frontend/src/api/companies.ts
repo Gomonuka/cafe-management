@@ -1,3 +1,4 @@
+//  frontend/src/api/companies.ts
 import { request } from "./client";
 
 export type PublicCompany = {

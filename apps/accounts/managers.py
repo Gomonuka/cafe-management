@@ -1,3 +1,4 @@
+# apps/accounts/managers.py
 from django.contrib.auth.models import UserManager as DjangoUserManager
 from django.db import models
 

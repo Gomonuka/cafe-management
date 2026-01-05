@@ -1,6 +1,6 @@
+// OrdersBoard.tsx
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import { fetchCompanyOrders, changeOrderStatus, type CompanyOrder } from "../api/orders";
 import { useMe } from "../auth/useMe";

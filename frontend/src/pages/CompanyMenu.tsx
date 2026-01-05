@@ -1,3 +1,4 @@
+//  frontend/src/pages/CompanyMenu.tsx
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { FiInfo, FiMinus, FiPlus } from "react-icons/fi";
@@ -99,7 +100,18 @@ export default function CompanyMenu() {
                   const canAdd = p.is_available && available > 0;
                   return (
                     <div key={p.id} className="product-card">
-                      <div className="product-thumb" />
+                      <div
+                        className="product-thumb"
+                        style={
+                          p.photo
+                            ? {
+                                backgroundImage: `url(${p.photo})`,
+                                backgroundSize: "cover",
+                                backgroundPosition: "center",
+                              }
+                            : undefined
+                        }
+                      />
                       <div className="product-name">{p.name}</div>
                       <div className="pill">{Number(p.price).toFixed(2)} €</div>
                       <div className="pill gray">Pieejams: {available}</div>

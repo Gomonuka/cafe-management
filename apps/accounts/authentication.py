@@ -1,8 +1,8 @@
+# apps/accounts/authentication.py
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 
 ACCESS_COOKIE = "access_token"
-
 
 class StrictJWTAuthentication(JWTAuthentication):
     def authenticate(self, request):

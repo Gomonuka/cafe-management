@@ -1,3 +1,4 @@
+//  frontend/src/api/menu.ts
 import { request } from "./client";
 
 export type MenuCategoryPublic = {
@@ -10,6 +11,7 @@ export type MenuCategoryPublic = {
     price: string;
     is_available: boolean;
     available_quantity?: number;
+    photo?: string | null;
   }>;
 };
 
@@ -28,7 +30,7 @@ export async function fetchMenu(companyId: number) {
 export async function fetchMenuAdmin(companyId: number) {
   return request<{
     categories: Array<{ id: number; name: string }>;
-    products: Array<{ id: number; name: string; price: string; is_available: boolean; available_quantity?: number; category_id: number }>;
+    products: Array<{ id: number; name: string; price: string; is_available: boolean; available_quantity?: number; category_id: number; photo?: string | null }>;
   }>({
     url: `/menu/${companyId}/`,
     method: "GET",

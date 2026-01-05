@@ -1,10 +1,10 @@
+/* Create Order lapas stili */
 .co{
   display:flex;
   flex-direction:column;
   gap: 14px;
 }
 
-/* top */
 .co-top{
   display:flex;
   align-items:center;

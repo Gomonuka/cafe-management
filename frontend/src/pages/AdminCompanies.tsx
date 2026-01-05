@@ -1,3 +1,4 @@
+//  frontend/src/pages/AdminCompanies.tsx
 import { useEffect, useState } from "react";
 import { FiTrash2, FiUserCheck, FiUserX } from "react-icons/fi";
 import Card from "../components/ui/Card";

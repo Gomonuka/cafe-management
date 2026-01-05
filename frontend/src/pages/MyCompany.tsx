@@ -1,8 +1,9 @@
+//  MyCompany.tsx
 import { useEffect, useState } from "react";
 import Card from "../components/ui/Card";
 import Input from "../components/ui/Input";
 import Button from "../components/ui/Button";
-import { deactivateCompany, deleteMyCompany, getCompanyDetail, updateCompany } from "../api/companies";
+import { deleteMyCompany, getCompanyDetail, updateCompany } from "../api/companies";
 import { getMe } from "../auth/auth.api";
 import {
   FiBriefcase,

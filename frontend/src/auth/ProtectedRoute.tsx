@@ -1,3 +1,4 @@
+//  frontend/src/auth/ProtectedRoute.tsx
 import { Navigate } from "react-router-dom";
 import type { Role } from "../types";
 import { useAuth } from "./AuthContext";

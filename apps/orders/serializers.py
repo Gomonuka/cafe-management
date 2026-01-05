@@ -1,7 +1,7 @@
+# apps/orders/serializers.py
 from rest_framework import serializers
 from apps.menu.models import Product
 from .models import Cart, CartItem, Order, OrderItem
-
 
 class CartItemInputSerializer(serializers.Serializer):
     # Ievadei grozam: produkts + daudzums
@@ -13,7 +13,6 @@ class CartItemInputSerializer(serializers.Serializer):
             raise serializers.ValidationError("Daudzumam jābūt pozitīvam.")
         return value
 
-
 class CartItemViewSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source="product.name", read_only=True)
     unit_price = serializers.DecimalField(source="product.price", max_digits=12, decimal_places=2, read_only=True)
@@ -22,12 +21,10 @@ class CartItemViewSerializer(serializers.ModelSerializer):
         model = CartItem
         fields = ["id", "product_id", "product_name", "quantity", "unit_price"]
 
-
 class CartViewSerializer(serializers.Serializer):
     # Groza skatam: items + total
     items = CartItemViewSerializer(many=True)
     total_amount = serializers.DecimalField(max_digits=12, decimal_places=2)
-
 
 class CheckoutSerializer(serializers.Serializer):
     # ORDER_008: noformēt pasūtījumu
@@ -43,7 +40,6 @@ class OrderItemSerializer(serializers.ModelSerializer):
         model = OrderItem
         fields = ["product_id", "product_name", "quantity", "unit_price"]
 
-
 class OrderClientSerializer(serializers.ModelSerializer):
     # ORDER_003: klienta skatam - detalizētāka informācija
     company_name = serializers.CharField(source="company.name", read_only=True)
@@ -56,13 +52,11 @@ class OrderClientSerializer(serializers.ModelSerializer):
             "items", "total_amount", "order_type", "notes",
         ]
 
-
 class OrderKanbanSerializer(serializers.ModelSerializer):
     # ORDER_004: uzņēmuma Kanban skatam
     class Meta:
         model = Order
         fields = ["id", "created_at", "order_type", "total_amount", "status"]
-
 
 class OrderStatusChangeSerializer(serializers.Serializer):
     # ORDER_005: mainīt statusu
